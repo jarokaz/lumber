@@ -8,18 +8,9 @@ import numpy as np
 import pandas as pd 
 
 
-def overlay_grid(image, group):
-    draw = ImageDraw.Draw(image)
-    for row in group.iterrows():
-        cor = [row[1][2], row[1][1], row[1][4], row[1][3]]
-        draw.rectangle(cor)
-    return image
-
-def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
-        
+def clone_sound_samples(image, group, size, prefix, outputpath, file_type):        
     group = group.sort_values(['min_x', 'min_y'])
     group = group.reset_index(drop=True)
-
     cols = group['min_x'].nunique()
     rows = group['min_y'].nunique()
     prefix = prefix + '_' + group.iloc[0]['image'] + '_sound_'
@@ -38,24 +29,35 @@ def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
         
 
 
-index = "c:/repos/lumber/data/unprocessed/manlabel.txt"
-df = pd.read_csv(index, delim_whitespace=True, header=None, names=['image','min_y','min_x','max_y','max_x','label'])
-gb = df.groupby(df['image']) 
+def generate_sound_samples(df, prefix, inputpath, outputpath):
+    clone_size = 100
+    file_type = ".PNG"
+    gb = df.groupby(df['image'])
+    for name, group in gb:
+        filepath = join(inputpath, name)
+        image = Image.open(filepath)
+        clone_sound_samples(image, group, clone_size,  prefix, outputpath, file_type)
+        print("Generated {0} samples from image: {1}".format(prefix, name))
+   
 
-file_type = ".PNG"
+
+### Generate train data
+inputpath="c:/repos/lumber/data/unprocessed/orig"
+outputpath="c:/repos/lumber/data/training"
 prefix = 'train'
-inputpath="c:/repos/lumber/data/unprocessed"
-outputpath="c:/repos/lumber/data/processed"
+index = "c:/repos/lumber/data/train_index.csv"
+df_train = pd.read_csv(index)
 
-clone_size = 100
-
-for name, group in gb:
-    filepath = join(inputpath, name)
-    image = Image.open(filepath)
-    clone_sound_samples(image, group, clone_size, prefix, outputpath, file_type)
-    
+print("Starting generation of training samples")
+generate_sound_samples(df_train, prefix, inputpath, outputpath)
 
 
-               
+### Generate test data
+inputpath="c:/repos/lumber/data/unprocessed/orig"
+outputpath="c:/repos/lumber/data/testing"
+prefix = 'test'
+index = "c:/repos/lumber/data/test_index.csv"
+df_test = pd.read_csv(index)
 
-        
+print("Starting generation of testing samples")
+generate_sound_samples(df_train, prefix, inputpath, outputpath)

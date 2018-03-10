@@ -1,0 +1,20 @@
+mkdir bark_pocket
+mkdir core_stripe
+mkdir decayed_knot
+mkdir dry_knot
+mkdir edge_knot
+mkdir encased_knot
+mkdir horn_knot
+mkdir knot_hole
+mkdir leaf_knot
+mkdir mould
+mkdir moustache_knot
+mkdir resin
+mkdir resin_pocket
+mkdir small_knot
+mkdir sound
+mkdir sound_knot
+mkdir split
+mkdir UNKNOWN
+mkdir wane
+
