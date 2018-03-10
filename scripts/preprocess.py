@@ -29,7 +29,7 @@ def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
         
 
 def generate_sound_samples(df, prefix, inputpath, outputpath):
-    clone_size = 100
+    clone_size = 112
     file_type = ".PNG"
     gb = df.groupby(df['image'])
     for name, group in gb:
@@ -75,7 +75,7 @@ def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
 
 
 def generate_blemished_samples(df, prefix, inputpath, outputpath):
-    clone_size = 100
+    clone_size = 112
     stride = 10
     file_type = ".PNG"
     gb = df.groupby(df['image'])
