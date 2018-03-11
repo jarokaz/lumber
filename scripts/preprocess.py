@@ -11,8 +11,8 @@ def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
     group = group.reset_index(drop=True)
     cols = group['min_x'].nunique()
     rows = group['min_y'].nunique()
-    prefix = prefix + '_' + group.iloc[0]['image'] + '_sound_'
-    outputpath = join(outputpath, 'sound')
+    label = 'sound'
+    prefix = prefix + '-' + group.iloc[0]['image'] + '_' + label + '_'
     filenumber = 1
     for col in range(cols-1):
         for row in range(rows-1):
@@ -24,7 +24,7 @@ def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
                 filename = prefix + str(filenumber) + file_type
                 filepath = join(outputpath, filename)
                 im.save(filepath)
-                logfile.write("{0}  {1}\n".format(filename, 'sound'))
+                logfile.write("{0}  {1}\n".format(filename, label))
                 filenumber += 1
         
 
@@ -50,7 +50,7 @@ def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
     if len(group) == 0:
         return
 
-    prefix = prefix + '_' + group.iloc[0]['image'] + '_'
+    prefix = prefix + '-' + group.iloc[0]['image'] 
     filenumber = 1
     
     for row in group.iterrows():
@@ -59,15 +59,15 @@ def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
         y = y_start = max(min_y, y2 - size)
         x_end = min(x1, max_x - size)
         y_end = min(y1, max_y - size)
-        folder = row[1][5]
+        label = row[1][5]
 
         while x <= x_end:
             while y <= y_end:
                 im = image.crop((x, y, x + size, y + size))
-                filename = prefix + '_' + folder + '_' + str(filenumber) + file_type
-                filepath = join(outputpath, folder, filename)
+                filename = prefix + '_' + label + '_' + str(filenumber) + file_type
+                filepath = join(outputpath, filename)
                 im.save(filepath)
-                logfile.write("{0}  {1}\n".format(filename, folder))
+                logfile.write("{0}  {1}\n".format(filename, label))
                 filenumber += 1
                 y = y + stride
             y = y_start
@@ -87,18 +87,14 @@ def generate_blemished_samples(df, prefix, inputpath, outputpath):
    
 
 ### COnfigure environment
-inputpath="c:/repos/lumber/data/unprocessed/orig"
-training_outputpath="c:/repos/lumber/data/training"
-testing_outputpath="c:/repos/lumber/data/testing"
-training_index = "c:/repos/lumber/data/train_index.csv"
-testing_index = "c:/repos/lumber/data/test_index.csv"
+inputpath="../data/unprocessed"
+training_outputpath="../data/training"
+testing_outputpath="../data/testing"
+training_index = "train_index.csv"
+testing_index = "test_index.csv"
 training_prefix = "train"
 testing_prefix = "test"
 
-
-# Global logfile
-path = "c:/repos/lumber/data/labels.txt"
-logfile = open(path, "w")
 
 # Read training index
 df_train = pd.read_csv(training_index)
@@ -107,17 +103,19 @@ df_train = pd.read_csv(training_index)
 df_test = pd.read_csv(testing_index)
 
 ### Generate training samples
+path = "../data/training/training_labels.txt"
+logfile = open(path, "w")
 print("Starting generation of blemished training samples")
 generate_blemished_samples(df_train, training_prefix, inputpath, training_outputpath)
-
 print("Starting generation of sound training samples")
 generate_sound_samples(df_train, training_prefix, inputpath, training_outputpath)
+logfile.close()
 
 ### Generate testing samples
+path = "../data/testing/testing_labels.txt"
+logfile = open(path, "w")
 print("Starting generation of blemished testing samples")
 generate_blemished_samples(df_test, testing_prefix, inputpath, testing_outputpath)
-
 print("Starting generation of sound testing samples")
 generate_sound_samples(df_test, testing_prefix, inputpath, testing_outputpath)
-
 logfile.close()

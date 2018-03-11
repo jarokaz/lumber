@@ -3,4 +3,4 @@
 **/*.zip
 **/*.html
 .vscode
-
+scripts/*.csv
