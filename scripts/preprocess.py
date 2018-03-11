@@ -1,18 +1,18 @@
 from PIL import Image
-
 from os import listdir
 from os.path import isfile, join
 import time
 import numpy as np
 import pandas as pd 
+import argparse
 
-def clone_sound_samples(image, group, size, prefix, outputpath, file_type):        
+def clone_sound_samples(image, group, size, outputpath, file_type, logfile):        
     group = group.sort_values(['min_x', 'min_y'])
     group = group.reset_index(drop=True)
     cols = group['min_x'].nunique()
     rows = group['min_y'].nunique()
     label = 'sound'
-    prefix = prefix + '-' + group.iloc[0]['image'] + '_' + label + '_'
+    prefix = group.iloc[0]['image'] + '_' + label + '_'
     filenumber = 1
     for col in range(cols-1):
         for row in range(rows-1):
@@ -28,18 +28,18 @@ def clone_sound_samples(image, group, size, prefix, outputpath, file_type):
                 filenumber += 1
         
 
-def generate_sound_samples(df, prefix, inputpath, outputpath):
+def generate_sound_samples(df, inputpath, outputpath, logfile):
     clone_size = 112
     file_type = ".PNG"
     gb = df.groupby(df['image'])
     for name, group in gb:
         filepath = join(inputpath, name)
         image = Image.open(filepath)
-        clone_sound_samples(image, group, clone_size,  prefix, outputpath, file_type)
+        clone_sound_samples(image, group, clone_size, outputpath, file_type, logfile)
       
    
 
-def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
+def clone_blemishes(image, group, size, stride,outputpath, file_type, logfile):
     min_x = min(group['min_x'])
     min_y = min(group['min_y'])
     max_x = max(group['max_x'])
@@ -50,7 +50,7 @@ def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
     if len(group) == 0:
         return
 
-    prefix = prefix + '-' + group.iloc[0]['image'] 
+    prefix = group.iloc[0]['image'] 
     filenumber = 1
     
     for row in group.iterrows():
@@ -74,7 +74,7 @@ def clone_blemishes(image, group, size, stride, prefix, outputpath, file_type):
             x = x + stride        
 
 
-def generate_blemished_samples(df, prefix, inputpath, outputpath):
+def generate_blemished_samples(df, inputpath, outputpath, logfile):
     clone_size = 112
     stride = 10
     file_type = ".PNG"
@@ -82,40 +82,48 @@ def generate_blemished_samples(df, prefix, inputpath, outputpath):
     for name, group in gb:
         filepath = join(inputpath, name)
         image = Image.open(filepath)
-        clone_blemishes(image, group, clone_size, stride, prefix, outputpath, file_type)
+        clone_blemishes(image, group, clone_size, stride, outputpath, file_type, logfile)
      
-   
-
-### COnfigure environment
-inputpath="../data/unprocessed"
-training_outputpath="../data/training"
-testing_outputpath="../data/testing"
-training_index = "train_index.csv"
-testing_index = "test_index.csv"
-training_prefix = "train"
-testing_prefix = "test"
 
 
-# Read training index
-df_train = pd.read_csv(training_index)
+def main(input_index, output_labels, input_dir, output_dir):
+    with open(output_labels, "w") as logfile:
+        index = pd.read_csv(input_index)
+        print(index.head())
+        print("Starting generation of blemished training samples")
+        generate_blemished_samples(index, input_dir, output_dir, logfile)
+        print("Starting generation of sound training samples")
+        generate_sound_samples(index, input_dir, output_dir, logfile)
 
-# Read testing index
-df_test = pd.read_csv(testing_index)
 
-### Generate training samples
-path = "../data/training/training_labels.txt"
-logfile = open(path, "w")
-print("Starting generation of blemished training samples")
-generate_blemished_samples(df_train, training_prefix, inputpath, training_outputpath)
-print("Starting generation of sound training samples")
-generate_sound_samples(df_train, training_prefix, inputpath, training_outputpath)
-logfile.close()
+OUTPUT_LABELS = 'labels.txt'
+        
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser("Preprocessing lumber images")
 
-### Generate testing samples
-path = "../data/testing/testing_labels.txt"
-logfile = open(path, "w")
-print("Starting generation of blemished testing samples")
-generate_blemished_samples(df_test, testing_prefix, inputpath, testing_outputpath)
-print("Starting generation of sound testing samples")
-generate_sound_samples(df_test, testing_prefix, inputpath, testing_outputpath)
-logfile.close()
+  parser.add_argument(
+      '--input-index',
+      type=str,
+      required = True,
+      help='The file index for origininal images')
+  parser.add_argument(
+      '--input-dir',
+      type=str,
+      required = True,
+      help='Directory with original unzipped images')
+  parser.add_argument(
+      '--output-index',
+      type=str,
+      required = True,
+      help='The file index for the processed images')
+  parser.add_argument(
+      '--output-dir',
+      type=str,
+      required = True,
+      help='Directory for processed .PNG files')
+
+  args = parser.parse_args()
+  print(args)
+  main(args.input_index, args.output_index, args.input_dir, args.output_dir)
+
+
