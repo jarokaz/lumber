@@ -24,6 +24,7 @@ def _bytes_feature(value):
     
 def convert_to_tfrecord(labels, inputpath, outputfile):    
     with tf.python_io.TFRecordWriter(outputfile) as writer:
+        counter = 0
         for index, row in labels.iterrows():
             im = load_image(inputpath, row['image'])
             example= tf.train.Example(
@@ -33,6 +34,9 @@ def convert_to_tfrecord(labels, inputpath, outputfile):
                         'label': _int64_feature(row['label'])
                     }))
             writer.write(example.SerializeToString())
+            counter += 1
+            if counter%500 == 0:
+                print("Processed {0} images.".format(counter))
                       
     
 

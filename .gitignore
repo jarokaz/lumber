@@ -5,3 +5,5 @@
 **/*.html
 .vscode
 scripts/*.csv
+checkpoints
+
