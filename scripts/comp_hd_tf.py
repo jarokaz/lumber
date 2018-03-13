@@ -17,20 +17,20 @@ from os.path import join
 def load_data_from_hdf5(training_file, validation_file):
 
     train = h5py.File(training_file)
-    #images = train['images'].value
+    images = train['images'].value
     labels = train['labels'].value
+
+    y_train = labels
+    x_train = images
     
-    #y_train = tf.keras.utils.to_categorical(labels, NUM_CLASSES)
-    #x_train = images/255
-    #
-    #test = h5py.File(validation_file)
-    #images = test['images'].value
-    #labels = test['labels'].value
-    #
-    #y_test = tf.keras.utils.to_categorical(labels, NUM_CLASSES)
-    #x_test = images/255
-    #return x_train, y_train, x_test, y_test
-    return labels
+    test = h5py.File(validation_file)
+    images = test['images'].value
+    labels = test['labels'].value
+
+    y_test = labels
+    x_test = images
+
+    return x_train, y_train, x_test, y_test
 
 
 
@@ -52,7 +52,6 @@ def load_tfrecords(file):
         assert IMAGE_SHAPE[0]*IMAGE_SHAPE[1]*IMAGE_SHAPE[2] == image.shape[0]
         
         image = np.reshape(image, IMAGE_SHAPE)
-        #label = tf.keras.utils.to_categorical(label_feature, NUM_CLASSES)
         label = label_feature
         
         images.append(image)
@@ -61,7 +60,7 @@ def load_tfrecords(file):
     images = np.asarray(images)
     labels = np.asarray(labels)
     
-    return labels
+    return  images, labels
     
 
 def load_data_from_tfrecords(training_file, validation_file):
@@ -84,19 +83,26 @@ VALID_HD = '../data/hdf5/validation.h5'
 
 def main():
 
-    labels1 = load_tfrecords(TRAIN_TF)
-    labels2 = load_data_from_hdf5(TRAIN_HD, VALID_HD)
+    tf_x_train, tf_y_train, tf_x_test, tf_y_test = load_data_from_tfrecords(TRAIN_TF, VALID_TF)
+    hd_x_train, hd_y_train, hd_x_test, hd_y_test = load_data_from_hdf5(TRAIN_HD, VALID_HD)
 
-    print(labels1.shape)
-    print(labels2.shape)
+    print(tf_x_train.shape)
+    print(tf_y_train.shape)
 
-    print(labels1[0:20])
-    print(labels2[0:20])
+    print(tf_x_test.shape)
+    print(tf_y_test.shape)
+
+    print(hd_x_train.shape)
+    print(hd_y_train.shape)
+
+    print(hd_x_test.shape)
+    print(hd_y_test.shape)
 
     print("Comparing ...")
 
-    #print(np.allclose(labels1, labels2))
 
+    print(np.allclose(tf_x_train, hd_x_train))
+    print(np.allclose(tf_y_train, hd_y_train))
 
 main()
 

@@ -11,22 +11,24 @@ import pandas as pd
 
 
              
-def convert_to_hdf5(labels, inputpath, outputfile):
+def convert_to_hdf5(df, inputpath, outputfile):
      with h5py.File(outputfile,  mode='w') as hdf5:
     
+        images_shape = (len(df), 112, 112, 3)
+        labels_shape = (len(df),)
         images = hdf5.create_dataset("images", images_shape, np.uint8)
         labels = hdf5.create_dataset("labels", labels_shape, np.uint8)
 
-        counter = 0
-        for index, row in labels.iterrows():
-            im = load_image(inputpath, row['image'])
+        i = 0
+        for index, row in df.iterrows():
+            im = Image.open(join(inputpath, row['image']))
             label = row['label']
             labels[i] = label 
             images[i] = np.array(im)
 
-            counter += 1
-            if counter%500 == 0:
-                print("processed {0} images.".format(counter))
+            i += 1
+            if i%500 == 0:
+                print("processed {0} images.".format(i))
  
    
    

@@ -33,7 +33,6 @@ def parse(serialized):
     image = tf.cast(image, tf.float32)
     image = image/255
     image = tf.reshape(image, IMAGE_SHAPE)
-    print(image)
     
     # Get the label
     label = parsed_example['label']
@@ -75,6 +74,7 @@ def input_fn(filenames, train, batch_size=32, buffer_size=2048):
     return {'image':images_batch}, labels_batch
 
 
+
 def model_fn(image_shape, input_name):
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
@@ -94,65 +94,46 @@ def model_fn(image_shape, input_name):
 
     return model
 
-
-def main(mode, train_file, valid_file, ckpt_dir):
-    print(train_file, valid_file, ckpt_dir)
     
-    if mode == 'train':
-        train_input_fn = lambda: input_fn(filenames=train_file, train=True)
-        valid_input_fn = lambda: input_fn(filenames=valid_file, train=False)
-        train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=5000)
-        eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn)
-        keras_model = model_fn(image_shape=IMAGE_SHAPE, input_name='image')
-        keras_estimator = model_to_estimator(keras_model = keras_model, model_dir=ckpt_dir)
-        tf.logging.set_verbosity(tf.logging.INFO)
-        tf.estimator.train_and_evaluate(keras_estimator, train_spec, eval_spec)
-
-    
-    elif mode == 'train_evaluate':
-        print('train_evaluate')
-    elif mode == 'evaluate':
-        print('evaluate')
-    elif mode == 'predict':
-        print('predict')
-    else:
-        print('else')
+IMAGE_SHAPE = (112, 112, 3)
+NUM_CLASSES = 7
+INPUT_NAME = 'image'
 
 
-DEFAULT_TRAIN_FILE = '../data/tfrecords/training.tfrecords'
-DEFAULT_VALIDATION_FILE = '../data/tfrecords/validation.tfrecords'
+def main(train_file, valid_file, ckpt_dir):
+
+    train_input_fn = lambda: input_fn(filenames=train_file, train=True)
+    valid_input_fn = lambda: input_fn(filenames=valid_file, train=False)
+
+    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=5000)
+    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn)
+
+    keras_model = model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME)
+    keras_estimator = model_to_estimator(keras_model = keras_model, model_dir=ckpt_dir)
+
+    tf.logging.set_verbosity(tf.logging.INFO)
+
+    tf.estimator.train_and_evaluate(keras_estimator, train_spec, eval_spec)
+
+   
 
 if __name__ == '__main__':
       parser = argparse.ArgumentParser("TFRecords file generator")
       parser.add_argument(
-          '--mode',
+          '--training',
           type=str,
-          default='train',
+          default = '../data/tfrecords/training.tfrecords',
           help='Training file')
       parser.add_argument(
-          '--data',
+          '--validation',
           type=str,
-          help='Training file')
-      parser.add_argument(
-          '--valid-file',
-          type=str,
+          default = '../data/tfrecords/validation.tfrecords',
           help='Validation file')
       parser.add_argument(
-          '--ckpt-dir',
+          '--ckpt',
           type=str,
           default='../checkpoints',
           help='Checkpoint dir')
 
       args = parser.parse_args()
-      
-      if args.mode == 'train':
-          if args.data is None:
-              train_data = DEFAULT_TRAIN_FILE
-              test_data = DEFAULT_VALIDATION_FILE
-      elif args.mode == 'validate':
-          if args.data is None:
-              data = DEFAULT_VALIDATION_FILE
-      else:
-          print("What to you want to do? train? validate?")
-
-      main(args.mode, train_data, test_data, args.ckpt_dir)
+      main(args.training, args.validation,  args.ckpt)

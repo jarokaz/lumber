@@ -13,42 +13,22 @@ from os.path import join
 
 
 
-def model_fn(image_shape, input_name):
-    inputs = Input(shape=image_shape, name=input_name)
-    x = Conv2D(32, (3, 3), activation='relu')(inputs)
-    x = Conv2D(64, (3, 3), activation='relu')(x)
-    x = MaxPooling2D(pool_size=(2, 2))(x)
-    x = Dropout(0.25)(x)
-    x = Flatten()(x)
-    x = Dense(128, activation='relu')(x)
-    x = Dropout(0.5)(x)
-    y = Dense(7, activation='softmax')(x)
-
-    model = Model(inputs=inputs, outputs=y)
-
-    model.compile(optimizer = Adadelta(), 
-                  loss='categorical_crossentropy', 
-                  metrics=['accuracy'])
-
-    return model
-
-
-
-def load_data_from_hd5(training_file, validation_file):
+def load_data_from_hdf5(training_file, validation_file):
 
     train = h5py.File(training_file)
     images = train['images'].value
     labels = train['labels'].value
-    
-    y_train = tf.keras.utils.to_categorical(labels, NUM_CLASSES)
-    x_train = images/255
+
+    y_train = labels
+    x_train = images
     
     test = h5py.File(validation_file)
     images = test['images'].value
     labels = test['labels'].value
-    
-    y_test = tf.keras.utils.to_categorical(labels, NUM_CLASSES)
-    x_test = images/255
+
+    y_test = labels
+    x_test = images
+
     return x_train, y_train, x_test, y_test
 
 
@@ -71,7 +51,7 @@ def load_tfrecords(file):
         assert IMAGE_SHAPE[0]*IMAGE_SHAPE[1]*IMAGE_SHAPE[2] == image.shape[0]
         
         image = np.reshape(image, IMAGE_SHAPE)
-        label = tf.keras.utils.to_categorical(label_feature, NUM_CLASSES)
+        label = label_feature
         
         images.append(image)
         labels.append(label)
@@ -79,7 +59,7 @@ def load_tfrecords(file):
     images = np.asarray(images)
     labels = np.asarray(labels)
     
-    return images, labels
+    return  images, labels
     
 
 def load_data_from_tfrecords(training_file, validation_file):
@@ -90,6 +70,27 @@ def load_data_from_tfrecords(training_file, validation_file):
     return x_train, y_train, x_test, y_test
 
 
+
+
+def model_fn(image_shape, input_name):
+    inputs = Input(shape=image_shape, name=input_name)
+    x = Conv2D(32, (3, 3), activation='relu')(inputs)
+    x = Conv2D(64, (3, 3), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Dropout(0.25)(x)
+    x = Flatten()(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    y = Dense(7, activation='softmax')(x)
+
+    model = Model(inputs=inputs, outputs=y)
+
+    model.compile(optimizer = Adadelta(), 
+                  loss='categorical_crossentropy', 
+                  metrics=['accuracy'])
+
+    return model
+
     
 IMAGE_SHAPE = (112, 112, 3)
 NUM_CLASSES = 7
@@ -99,17 +100,22 @@ INPUT_NAME = 'image'
 def main(mode):
   
     if mode == 'hdf5':
+        print("Training from hdf5")
         training_file = '../data/hdf5/training.h5'
         validation_file = '../data/hdf5/validation.h5'
         model_path = '../models/hdf5'
         log_dir = '../logs/hdf5{0}'.format(strftime('%H%M%S'))        
-        x_train, y_train, x_test, y_test = load_data_from_hd5(training_file, validation_file)     
-    else:
+        x_train, y_train, x_test, y_test = load_data_from_hdf5(training_file, validation_file)     
+    elif mode == 'tfrecords':
+        print("Training from TFRecords")
         training_file = '../data/tfrecords/training.tfrecords'
         validation_file = '../data/tfrecords/validation.tfrecords'
         model_path = '../models/tfrecords'
         log_dir = '../logs/tfrecors{0}'.format(strftime('%H%M%S')) 
         x_train, y_train, x_test, y_test = load_data_from_tfrecords(training_file, validation_file)
+    else:
+        print("Pitty ...")
+        return
         
     tensorboard = TensorBoard(log_dir=log_dir)
     
@@ -117,7 +123,12 @@ def main(mode):
 
     model = model_fn(IMAGE_SHAPE, INPUT_NAME)
 
+    x_train = x_train/255
+    x_test = x_test/255
     
+    y_train =  tf.keras.utils.to_categorical(y_train, NUM_CLASSES)
+    y_test =  tf.keras.utils.to_categorical(y_test, NUM_CLASSES)
+
     model.fit(x_train, y_train, batch_size=32, epochs=5, verbose=1, callbacks=[tensorboard])
     
     model_file = join(model_path, 'cnn_{0}'.format(strftime('%H%M%S')))
@@ -127,6 +138,6 @@ def main(mode):
     print(results)
 
 
-main('tfrecordst')
+main('tfrecords')
 
 
