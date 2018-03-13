@@ -38,7 +38,8 @@ def convert_to_tfrecord(labels, inputpath, outputfile):
             if counter%500 == 0:
                 print("Processed {0} images.".format(counter))
                       
-    
+ 
+   
 
 def main(inputpath, outputfile, allowed_labels):
     labels = pd.read_csv(join(inputpath, LABELS_FILE), delim_whitespace=True, header=None, names=['image', 'label'])

@@ -127,5 +127,6 @@ def main(mode):
     print(results)
 
 
-main('hdf5')
+main('tfrecordst')
+
 
