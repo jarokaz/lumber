@@ -6,4 +6,5 @@
 .vscode
 scripts/*.csv
 checkpoints
-
+logs
+tmp

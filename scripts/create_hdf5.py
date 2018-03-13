@@ -33,9 +33,9 @@ def create_hdf5(hdf5_filepath, path_to_images):
 
 
 path_to_training_images = '../data/training'
-path_to_testing_images = '../data/testing'
+path_to_testing_images = '../data/validation'
 training_file = '../data/hdf5/training.h5'
-testing_file = '../data/hdf5/testing.h5'
+testing_file = '../data/hdf5/validation.h5'
 
 print("Generating the training file")
 create_hdf5(training_file, path_to_training_images)
