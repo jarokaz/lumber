@@ -10,68 +10,40 @@ from matplotlib.image import imread
 import numpy as np
 import argparse
 
-NUM_CLASSES = 7
-IMAGE_SHAPE = (112, 112, 3)
+ 
+def parse(example_proto):
+    features = {"image": tf.FixedLenFeature((), tf.string, default_value=""),
+                "label": tf.FixedLenFeature((), tf.int64, default_value=0)}
 
-def parse(serialized):
-    # Define a dict with the schema reflecting the data in the TFRecords file
-    features = \
-        {
-            'image': tf.FixedLenFeature([], tf.string),
-            'label': tf.FixedLenFeature([], tf.int64)
-        }
-    
-    # Parse the serialized data
-    parsed_example = tf.parse_single_example(serialized=serialized,
-                                             features=features)
-    
-    # Get the image as raw bytes
-    image_raw = parsed_example['image']
-    
-    # Convert the raw bytes to tensorflow datatypes
-    image = tf.decode_raw(image_raw, tf.uint8)
-    image = tf.cast(image, tf.float32)
+    parsed_features = tf.parse_single_example(example_proto, features)
+    image = tf.decode_raw(parsed_features['image'], tf.uint8)
     image = image/255
     image = tf.reshape(image, IMAGE_SHAPE)
-    
-    # Get the label
-    label = parsed_example['label']
+    label = parsed_features['label']
     label = tf.one_hot(label, NUM_CLASSES)
-    
-    # Return the image and label as correct data types
-    return image, label
-    
-    
-def input_fn(filenames, train, batch_size=32, buffer_size=2048):
-    # Create a TensorFlow Dataset-object which has functionality for reading and shuffling data 
-    # from TFREcords files
-    
-    dataset = tf.data.TFRecordDataset(filenames=filenames)
-    
-    # Start building the pipeline
-    # Parse
-    dataset = dataset.map(parse)
-    
-    # Shuffle when training
+
+    return {'image': image}, label
+
+
+  
+def input_fn(file, train, batch_size=32, buffer_size=10000):
     if train:
-        # dataset = dataset.shuffle(buffer_size = buffer_size)
-        # Allow infinite reading of the data
-        num_repeat = None
+        rep = None
     else:
-        num_repeat = 1
-        
-    # Repeat the dataset the given number of times
-    dataset = dataset.repeat(num_repeat)
-    
-    # Set the batch size
+        rep = 1 
+
+
+    dataset = tf.data.TFRecordDataset(file)
+    dataset = dataset.map(parse)
+    dataset = dataset.shuffle(buffer_size)
     dataset = dataset.batch(batch_size)
-    
-    # Create an iterator
+    dataset = dataset.repeat(rep)
+
     iterator = dataset.make_one_shot_iterator()
+    features, labels = iterator.get_next()
     
-    images_batch, labels_batch = iterator.get_next()
     
-    return {'image':images_batch}, labels_batch
+    return features, labels
 
 
 
@@ -88,7 +60,7 @@ def model_fn(image_shape, input_name):
 
     model = Model(inputs=inputs, outputs=y)
 
-    model.compile(optimizer = Adadelta(), 
+    model.compile(optimizer = Adam(), 
                   loss='categorical_crossentropy', 
                   metrics=['accuracy'])
 
@@ -102,10 +74,13 @@ INPUT_NAME = 'image'
 
 def main(train_file, valid_file, ckpt_dir):
 
-    train_input_fn = lambda: input_fn(filenames=train_file, train=True)
-    valid_input_fn = lambda: input_fn(filenames=valid_file, train=False)
+    batch_size = 64
+    print("Starting training: batch_size:{0}".format(batch_size))
 
-    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=5000)
+    train_input_fn = lambda: input_fn(file=train_file, batch_size=batch_size, train=True)
+    valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False)
+
+    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=15000)
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn)
 
     keras_model = model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME)
