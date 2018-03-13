@@ -89,7 +89,10 @@ def generate_blemished_samples(df, inputpath, outputpath, logfile):
 def main(input_index, output_labels, input_dir, output_dir):
     with open(output_labels, "w") as logfile:
         index = pd.read_csv(input_index)
-        print(index.head())
+        
+        print(len(index))
+        return
+    
         print("Starting generation of blemished training samples")
         generate_blemished_samples(index, input_dir, output_dir, logfile)
         print("Starting generation of sound training samples")
