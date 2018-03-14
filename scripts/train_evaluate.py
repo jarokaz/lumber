@@ -11,6 +11,7 @@ import numpy as np
 import argparse
 from time import strftime, time 
 from os.path import join
+import os
 
  
 def _parse(example_proto, augment):
@@ -76,13 +77,7 @@ INPUT_NAME = 'image'
 
 
 def main(model, train_file, valid_file, augment, ckpt_dir, opt, batch_size, max_steps,  lr):
-    
-    if model == 'simple':
-        model_fn = simple_cnn_model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME, optimizer)
-    else:
-        print("Unsupported model")
-        return
-    
+   
     if not os.path.exists(train_file):
         print("Training file does not exist")
         return
@@ -95,43 +90,54 @@ def main(model, train_file, valid_file, augment, ckpt_dir, opt, batch_size, max_
         print("Checkpoint directory does not exist !!!")
         return
     
-    if opt = 'Adam':
+    if (augment != 1) and (augment != 0):
+        print("Wrong augment value")
+        return
+    
+    if opt == 'Adam':
         optimizer = Adam(lr = lr)
     else:
         print("Unsupported optimizer")
         return
-        
-    ckpt_dir = join(ckpt_dir, model+strftime('%d-%m %H%M'))
+   
+    start_time = strftime('%d-%m-%H%M')
+    ckpt_folder = join(ckpt_dir, model+'_'+start_time)
+  
+    if model == 'base':
+        model_fn = simple_cnn_model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME, optimizer = optimizer)
+        estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
+    else:
+        print("Unsupported model")
+        return
     
-    with open(join(ckpt_dir, 'run_hyperparameters.txt'), 'w') as logfile:
-        logfile.write("Training run started at: {0}\n"format(strftime('%c')))
+    
+
+    summary_file = join(ckpt_dir, model+'_'+start_time+ '.txt' )
+                      
+    with open(summary_file, 'w') as logfile:
+        logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(model))
-        logfile.write("Hyperparameters:")
+        logfile.write("Hyperparameters:\n")
         logfile.write("  Optimizer: {0}\n".format(opt))
         logfile.write("  Learning rate: {0}\n".format(lr))
         logfile.write("  Training file: {0}\n".format(train_file))
-        logfile.write("  Validation file: {0}\n".format(valid_fiel))
+        logfile.write("  Validation file: {0}\n".format(valid_file))
         logfile.write("  Data augmentation: {0}\n".format('On' if augment==1 else 'Off'))          
-        logfile.write("  Batch size: {0}\n".ormat(batch_size))
+        logfile.write("  Batch size: {0}\n".format(batch_size))
         logfile.write("  Max steps: {0}\n".format(max_steps))
  
 
 
-    train_input_fn = lambda: input_fn(file=train_file, batch_size=batch_size, train=True, augment=True)
-    valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False, augment=False)
+    train_input_fn = lambda: input_fn(file=train_file, batch_size=batch_size, train=True, augment = augment)
+    valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False, augment = augment)
 
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
-    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn)
+    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
 
-    
-    keras_estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_dir)
 
     tf.logging.set_verbosity(tf.logging.INFO)
 
-    tf.estimator.train_and_evaluate(keras_estimator, train_spec, eval_spec)
-    
-    with open(join(ckpt_dir, 'run_hyperparameters.txt'), 'w') as logfile:
-        logfile.write("Training completed at: {0}\n".format(strftime('%c')))
+    tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
    
 
 if __name__ == '__main__':
@@ -140,7 +146,7 @@ if __name__ == '__main__':
       parser.add_argument(
           '--model',
           type=str,
-          default = 'simple',
+          default = 'base',
           help='Model to train')
     
       parser.add_argument(
