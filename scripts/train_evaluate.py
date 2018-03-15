@@ -1,8 +1,12 @@
 import tensorflow as tf
-from tensorflow.python.keras import Model, Input
-from tensorflow.python.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+
 from tensorflow.python.keras.optimizers import Adadelta, Adam
 from tensorflow.python.keras.estimator import model_to_estimator
+from tensorflow.python.keras.applications.vgg16 import VGG16
+from tensorflow.python.keras import models
+from tensorflow.python.keras import layers
+from tensorflow.python.keras import Model, Input
+from tensorflow.python.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -23,8 +27,8 @@ def _parse(example_proto, augment):
     image = image/255
     image = tf.reshape(image, IMAGE_SHAPE)
     if augment:
-      image = tf.image.random_flip_left_right(image)
-      image = tf.image.random_hue(image, max_delta=0.1)
+        image = tf.image.random_flip_left_right(image)
+        image = tf.image.random_hue(image, max_delta=0.1)
     label = parsed_features['label']
     label = tf.one_hot(label, NUM_CLASSES)
 
@@ -41,7 +45,9 @@ def input_fn(file, train, batch_size=32, buffer_size=10000, augment=False):
     parse = lambda x: _parse(x, augment)
     
     dataset = dataset.map(parse)
-    dataset = dataset.shuffle(buffer_size)
+    if train:
+        dataset = dataset.shuffle(buffer_size)
+    
     dataset = dataset.batch(batch_size)
     dataset = dataset.repeat(None if train else 1)
 
@@ -52,6 +58,7 @@ def input_fn(file, train, batch_size=32, buffer_size=10000, augment=False):
 
 
 def simple_cnn_model_fn(image_shape, input_name, optimizer):
+    
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
     x = Conv2D(64, (3, 3), activation='relu')(x)
@@ -69,6 +76,31 @@ def simple_cnn_model_fn(image_shape, input_name, optimizer):
                   metrics=['accuracy'])
 
     return model
+
+
+def VGG16base(image_shape, input_name, optimizer):
+  
+    input = Input(shape=image_shape, name=input_name)
+    conv_base = VGG16(weights='imagenet',
+                   include_top=False,
+                   input_tensor=input)
+    
+    for layer in conv_base.layers:
+        layer.trainable = False
+
+    a = Flatten()(conv_base.output)
+    a = Dense(256, activation='relu')(a)
+    y = Dense(NUM_CLASSES, activation='softmax')(a)
+    
+    model = Model(inputs=input, outputs=y)
+    
+    model.compile(loss='categorical_crossentropy',
+                  optimizer=optimizer,
+                  metrics=['acc'])
+    
+    return model
+
+
 
     
 IMAGE_SHAPE = (112, 112, 3)
@@ -104,16 +136,29 @@ def main(model, train_file, valid_file, augment, ckpt_dir, opt, batch_size, max_
     ckpt_folder = join(ckpt_dir, model+'_'+start_time)
   
     if model == 'base':
-        model_fn = simple_cnn_model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME, optimizer = optimizer)
-        estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
+        model_fn = simple_cnn_model_fn(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME, optimizer = optimizer)      
+    elif model == 'vgg16base':
+        model_fn = VGG16base(image_shape=IMAGE_SHAPE, input_name=INPUT_NAME, optimizer=optimizer)
+        
     else:
         print("Unsupported model")
         return
     
     
+   
+    
+    estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
+    
+    train_input_fn = lambda: input_fn(file=train_file, batch_size=batch_size, train=True, augment = augment)
+    valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False, augment = False)
 
+    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
+    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
+
+
+    tf.logging.set_verbosity(tf.logging.INFO)
+    
     summary_file = join(ckpt_dir, model+'_'+start_time+ '.txt' )
-                      
     with open(summary_file, 'w') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(model))
@@ -127,16 +172,7 @@ def main(model, train_file, valid_file, augment, ckpt_dir, opt, batch_size, max_
         logfile.write("  Max steps: {0}\n".format(max_steps))
  
 
-
-    train_input_fn = lambda: input_fn(file=train_file, batch_size=batch_size, train=True, augment = augment)
-    valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False, augment = augment)
-
-    train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
-    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
-
-
-    tf.logging.set_verbosity(tf.logging.INFO)
-
+    # Start training
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
    
 
