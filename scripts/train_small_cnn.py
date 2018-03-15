@@ -40,7 +40,10 @@ def input_fn(file, train, batch_size=32, buffer_size=10000, augment=False):
     parse = lambda x: _parse(x, augment)
     
     dataset = dataset.map(parse)
-    dataset = dataset.shuffle(buffer_size)
+    
+    if train:
+      dataset = dataset.shuffle(buffer_size)
+    
     dataset = dataset.batch(batch_size)
     dataset = dataset.repeat(None if train else 1)
 
