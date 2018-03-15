@@ -15,20 +15,34 @@ def parse(example_proto):
 
     return {'image': image}, label
 
+def parse1(example_proto):
+    features = {"embedding": tf.FixedLenFeature([4608], tf.float32),
+                "label": tf.FixedLenFeature([], tf.int64)}
+
+    parsed_features = tf.parse_single_example(example_proto, features)
+    
+    label = parsed_features['label']
+    embedding = parsed_features['embedding']
+
+
+    return  embedding, label
+
+
+
 def main():
-    FILE = '../data/tfrecords/validation.tfrecords'
+    FILE = '../data/embeddings/eb_validation.tfrecords'
 
     dataset = tf.data.TFRecordDataset(FILE)
-    dataset = dataset.map(parse)
+    dataset = dataset.map(parse1)
     dataset = dataset.repeat(1)
-    dataset = dataset.batch(3)
-    print(dataset.output_types)
+    dataset = dataset.batch(2)
     iterator = dataset.make_one_shot_iterator()
-    record = iterator.get_next()
+    embedding, label = iterator.get_next()
     
     with tf.Session() as sess:
-       record = sess.run(record)
-       print(type(record))
+       result1 = sess.run(label)
+       print(result1.shape)
+       #print(type(result2))
         #print(result1)
         #print(type(result2))
         #print(result2)
