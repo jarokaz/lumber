@@ -16,66 +16,79 @@ from time import strftime, time
 from os.path import join
 import os
 
+
  
-def parse(example_proto):
+def scale_image(image):
+    """Scales image pixesl between -1 and 1"""
+    image = image / 127.5
+    image = image - 1.
+    return image
 
-    features = {"embedding": tf.FixedLenFeature([INPUT_SHAPE[0]], tf.float32),
-                "label": tf.FixedLenFeature([], tf.int64)}
 
-    parsed_features = tf.parse_single_example(example_proto, features) 
-    label = parsed_features['label']
-    embedding = parsed_features['embedding']
-    label = tf.one_hot(label, NUM_CLASSES)
+def _parse(example_proto, augment):
+    features = {"image": tf.FixedLenFeature((), tf.string, default_value=""),
+                "label": tf.FixedLenFeature((), tf.int64, default_value=0)}
+
+    parsed_features = tf.parse_single_example(example_proto, features)
+    image = tf.decode_raw(parsed_features['image'], tf.uint8)
+    image = tf.cast(image, tf.float32)
+    image = scale_image(image)
+    image = tf.reshape(image, IMAGE_SHAPE)
     
-    return  embedding, label
+    if augment:
+      image = tf.image.random_flip_left_right(image)
+      image = tf.image.random_hue(image, max_delta=0.1)
+        
+    label = parsed_features['label']
+    label = tf.one_hot(label, NUM_CLASSES)
 
+    return  image, label
 
   
 def input_fn(file, train, batch_size=64, buffer_size=10000):
-    
    
-    dataset = tf.data.TFRecordDataset(file)  
-    dataset = dataset.map(parse)    
+    if train:
+        rep = None 
+        augment = True
+    else:
+        rep = 1
+        augment = False
+
+    dataset = tf.data.TFRecordDataset(file)
+    parse = lambda x: _parse(x, augment)
+    dataset = dataset.map(parse)
     
     if train:
         dataset = dataset.shuffle(buffer_size)
-
+        
     dataset = dataset.batch(batch_size)
-    dataset = dataset.repeat(None if train else 1)
+    dataset = dataset.repeat(rep)
 
     iterator = dataset.make_one_shot_iterator()
-    embeddings, labels = iterator.get_next()
+    features, labels = iterator.get_next()
     
-    return {'embedding':embeddings}, labels
+    return {"image": features}, labels
 
 
-def FCN1(input_shape, input_name, optimizer, loss, metrics, regularizer):
-      
-    x = Input(shape=INPUT_SHAPE, name=INPUT_NAME)
-    a = Dense(1024, activation='relu', kernel_regularizer=regularizer)(x)
-    y = Dense(NUM_CLASSES, activation='softmax', kernel_regularizer=regularizer, name='Softmax')(a)
-     
-    model = Model(x, y, name='FCN1')
-    model.compile(loss=loss,
-                  optimizer=optimizer,
-                  metrics=metrics) 
+def my_cnn(image_shape, input_name, optimizer, loss, metrics ):
+    inputs = Input(shape=image_shape, name=input_name)
+    x = Conv2D(32, (3, 3), activation='relu')(inputs)
+    x = Conv2D(64, (3, 3), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Dropout(0.25)(x)
+    x = Flatten()(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    y = Dense(7, activation='softmax')(x)
+
+    model = Model(inputs=inputs, outputs=y)
+
+    model.compile(optimizer = optimizer, 
+                  loss=loss, 
+                  metrics=metrics)
     return model
 
-
-def FCN2(input_shape, input_name, optimizer, loss, metrics, regularizer):    
-    
-    x = Input(shape=INPUT_SHAPE, name=INPUT_NAME) 
-    a = Dense(1024, activation='relu', kernel_regularizer=regularizer)(x)
-    a = Dense(1024, activation='relu', kernel_regularizer=regularizer)(x)
-    y = Dense(NUM_CLASSES, activation='softmax', kernel_regularizer=regularizer, name='Softmax')(a)
-     
-    model = Model(x, y, name='FCN2')
-    model.compile(loss=loss,
-                  optimizer=optimizer,
-                  metrics=metrics)  
-    return model
-
-
+ 
 
 def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_size, max_steps):
     
@@ -87,15 +100,14 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
 
-
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
    
     
     
-INPUT_SHAPE = (4608,)
+IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
-INPUT_NAME = 'embedding'
+INPUT_NAME = 'image'
 
 
 def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps,  lr, l2):
@@ -111,11 +123,8 @@ def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_
     metrics = ['categorical_accuracy']
     loss = 'categorical_crossentropy'
     
-    if model == 'FCN1':
-        model_fn =  FCN1(INPUT_SHAPE, INPUT_NAME, optimizer, loss, metrics, regularizer)  
-    elif model == 'FCN2':
-        model_fn =  FCN2(INPUT_SHAPE, INPUT_NAME, optimizer, loss, metrics, regularizer) 
-       
+    model_fn =  my_cnn(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics )  
+        
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
                           train_file = train_file,
@@ -132,19 +141,19 @@ if __name__ == '__main__':
     parser.add_argument(
           '--model',
           type=str,
-          default = 'FCN1',
+          default = 'MYCNN',
           help='Model to train')
     
     parser.add_argument(
           '--training',
           type=str,
-          default = '../data/embeddings/eb_training.tfrecords',
+          default = '../data/tfrecords/training.tfrecords',
           help='Training file')
         
     parser.add_argument(
           '--validation',
           type=str,
-          default = '../data/embeddings/eb_validation.tfrecords',
+          default = '../data/tfrecords/validation.tfrecords',
           help='Validation file')
       
     parser.add_argument(
@@ -169,7 +178,7 @@ if __name__ == '__main__':
           '--max-steps',
           type=int,
           default=5000,
-          help='Batch size')
+          help='Max steps')
         
     parser.add_argument(
           '--lr',
@@ -182,8 +191,7 @@ if __name__ == '__main__':
           type=float,
           default=0,
           help='L2 regularization')
-        
-  
+    
     args = parser.parse_args()
 
                           
@@ -203,7 +211,7 @@ if __name__ == '__main__':
         print("Unsupported optimizer")
         exit()
    
-    if args.model not in ['FCN1', 'FCN2']:
+    if args.model not in ['MYCNN']:
         print("Unsupported model")
         exit()
                                                   
@@ -223,6 +231,7 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
+
    
 
     main(args.model,
@@ -233,6 +242,6 @@ if __name__ == '__main__':
          args.batch_size,
          args.max_steps,
          args.lr,
-         args.l2         
+         args.l2
         )
 

@@ -5,6 +5,6 @@
 **/*.html
 .vscode
 scripts/*.csv
-checkpoints
+checkpoints*
 logs
 tmp

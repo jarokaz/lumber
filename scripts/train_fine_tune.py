@@ -31,6 +31,7 @@ def _parse(example_proto, augment):
 
     parsed_features = tf.parse_single_example(example_proto, features)
     image = tf.decode_raw(parsed_features['image'], tf.uint8)
+    image = tf.cast(image, tf.float32)
     image = scale_image(image)
     image = tf.reshape(image, IMAGE_SHAPE)
     
@@ -44,9 +45,14 @@ def _parse(example_proto, augment):
     return  image, label
 
   
-def input_fn(file, train, batch_size=32, buffer_size=10000, augment=False):
+def input_fn(file, train, batch_size=32, buffer_size=10000):
    
-    rep = None if train else 1
+    if train:
+        rep = None 
+        augment = True
+    else:
+        rep = 1
+        augment = False
 
     dataset = tf.data.TFRecordDataset(file)
     parse = lambda x: _parse(x, augment)
@@ -64,30 +70,32 @@ def input_fn(file, train, batch_size=32, buffer_size=10000, augment=False):
     return {"image": features}, labels
 
 
-def VGG16Full(image_shape, input_name, optimizer, hidden_units=1024,  pretrain=False):
+
+def VGG16Full(image_shape, input_name, optimizer, loss, metrics  fine_tuning=False):
     
-    input = Input(shape=IMAGE_SHAPE, name=INPUT_NAME)
+    input = Input(shape=image_shape, name=input_name)
     conv_base = VGG16(weights='imagenet',
                    include_top=False,
                    input_tensor=input)
     
     for layer in conv_base.layers:
-        layer.trainable = False if pretrain else True
+        layer.trainable = True if fine_tuning else False
 
     a = Flatten()(conv_base.output)
-    a = Dense(hidden_units, activation='relu')(a)
+    a = Dense(1024, activation='relu')(a)
     y = Dense(NUM_CLASSES, activation='softmax')(a)
     
     model = Model(inputs=input, outputs=y)
     
-    conv_base.trainable = False
-    model.compile(loss='categorical_crossentropy',
+    model.compile(loss=loss,
                   optimizer=optimizer,
-                  metrics=['acc'])
+                  metrics=metrics)
  
     return model
 
 
+
+ 
 
 def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_size, max_steps):
     
@@ -99,36 +107,41 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
 
+    tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
    
     
     
-INPUT_SHAPE = (4608,)
+IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
-INPUT_NAME = 'embedding'
+INPUT_NAME = 'image'
 
 
-def main(args):
-    
-    if args.optimizer == 'Adam':
-        optimizer = optimizer, Adam(lr = lr)
+def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps,  lr, l2, fine_tuning):
    
-    # Create model function
-    if args.model == 'VGG16Full':
-        model_fn =  VGG16Full(image_shape, input_name, hidden_units=args.hidden_units,  pretrain=args.pretrain)  
-     
-    # Start training
-    start_time = strftime('%d-%m-%H%M')
-    ckpt_folder = join(args.ckpt, args.model + '_' + start_time)
+    if optimizer == 'Adam':
+        optimizer = Adam(lr = lr)
+        
+    if l2 > 0:
+        regularizer = regularizers.l2(l2)
+    else:
+        regularizer = None
 
-    return
-    my_train_and_evaluate(model_fn = model_fn, 
-                          train_file = args.training,
-                          valid_file = args.validation,
-                          ckpt_folder = ckpt_folder,
-                          batch_size = args.batch_size,
-                          max_steps = args.max_steps
+    metrics = ['categorical_accuracy']
+    loss = 'categorical_crossentropy'
     
+    if model == 'VGG16Full':
+        model_fn =  VGG16FUll(INPUT_SHAPE, INPUT_NAME, optimizer, loss, metrics, regularizer, fine_tuning)  
+        
+    # Start training  
+    my_train_and_evaluate(model_fn = model_fn, 
+                          train_file = train_file,
+                          valid_file = valid_file,
+                          ckpt_folder = ckpt_folder,
+                          batch_size = batch_size,
+                          max_steps = max_steps)  
+
+ 
 # Main entry
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Training, evaluation worklfow")
@@ -148,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument(
           '--validation',
           type=str,
-          default = '../data/trfrecords/validation.tfrecords',
+          default = '../data/tfrecords/eb_validation.tfrecords',
           help='Validation file')
       
     parser.add_argument(
@@ -173,7 +186,7 @@ if __name__ == '__main__':
           '--max-steps',
           type=int,
           default=5000,
-          help='Batch size')
+          help='Max steps')
         
     parser.add_argument(
           '--lr',
@@ -186,49 +199,43 @@ if __name__ == '__main__':
           type=float,
           default=0,
           help='L2 regularization')
-        
-    parser.add_argument(
-          '--hidden-units',
-          type=int,
-          default=0,
-          help='Hidden units')     
     
     parser.add_argument(
-          '--pretrain',
-          type=int,
-          default=1,
-          help='Pretrain')   
-      
+          '--fine_tuning',
+          type=float,
+          default=0,
+          help='Finie tuning mode')
+        
+  
     args = parser.parse_args()
 
                           
     if not os.path.exists(args.training):
         print("Training file does not exist")
-        return
+        exit()
     
     if not os.path.exists(args.validation):
         print("Validation file does not exist")
-        return
+        exit()
     
     if not os.path.isdir(args.ckpt):
         print("Checkpoint directory does not exist !!!")
-        return
+        exit()
         
-    if args.optimizer == 'Adam':
-        optimizer = optimizer, Adam(lr = lr)
-    else:
+    if args.optimizer not in ['Adam']:
         print("Unsupported optimizer")
-        return
+        exit()
    
-    if args.model != 'VGG16Full':
+    if args.model not in ['VGG16Full']:
         print("Unsupported model")
-        return
+        exit()
                                                   
-                          
+    start_time = strftime('%d-%m-%H%M')
+    ckpt_folder = join(args.ckpt, args.model + '_' + start_time)                
     summary_file = join(args.ckpt, args.model + '_' + start_time + '.txt' )
 
     # Logg training parameters
-    with open(parameters(summary_file), 'w') as logfile:
+    with open(summary_file, 'w') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(args.model))
         logfile.write("Hyperparameters:\n")
@@ -239,10 +246,18 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
-        logfile.write("  Hidden units: {0}\n".format(args.hidden_units))
-        logfile.write("  Pretraining: {0}\n".format('Yes' if args.pretrain else 'No'))
-    
-    
-    #tf.logging.set_verbosity(tf.logging.INFO)
+        logfile.write("  Fine tuning: {0}\n".format('Yes' if args.fine_tuning == 1 else 'No'))
+   
 
-    #main(args)
+    main(args.model,
+         args.training,
+         args.validation,
+         ckpt_folder,
+         args.optimizer,
+         args.batch_size,
+         args.max_steps,
+         args.lr,
+         args.l2,
+         args.fine_tuning
+        )
+
