@@ -71,8 +71,8 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
 
 
 
-def VGG16Full(image_shape, input_name, optimizer, loss, metrics  fine_tuning=False):
-    
+def VGG16Full(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
+      
     input = Input(shape=image_shape, name=input_name)
     conv_base = VGG16(weights='imagenet',
                    include_top=False,
@@ -131,7 +131,7 @@ def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_
     loss = 'categorical_crossentropy'
     
     if model == 'VGG16Full':
-        model_fn =  VGG16FUll(INPUT_SHAPE, INPUT_NAME, optimizer, loss, metrics, regularizer, fine_tuning)  
+        model_fn =  VGG16Full(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tuning)  
         
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument(
           '--validation',
           type=str,
-          default = '../data/tfrecords/eb_validation.tfrecords',
+          default = '../data/tfrecords/validation.tfrecords',
           help='Validation file')
       
     parser.add_argument(
