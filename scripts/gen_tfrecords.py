@@ -303,12 +303,12 @@ if __name__ == '__main__':
       required=True,
       help='Directory for intermediate snapshots' )
   parser.add_argument(
-      '--validation_percentage',
+      '--validation-percentage',
       type=int,
       default=10,
       help='Percentage of images to use as a validation set')
   parser.add_argument(
-      '--testing_percentage',
+      '--testing-percentage',
       type=int,
       default=10,
       help='Percentage of images to use as a test set')
