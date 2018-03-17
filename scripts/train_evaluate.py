@@ -95,7 +95,7 @@ def vgg16_trunk(image_shape, input_name, tune=[]):
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  True if layer in tune else False
+        layer.trainable =  True if layer.name in tune else False
 
     conv_base = base_model.output
    
@@ -117,7 +117,7 @@ def xception_trunk(image_shape, input_name, optimizer, loss, metrics, tune=[]):
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  True if layer in tune else False
+        layer.trainable =  True if layer.name in tune else False
 
     a = Flatten()(conv_base)
     a = Dense(1024, activation='relu')(a)
@@ -172,6 +172,7 @@ def main(model,
         lr,
         l2,
         tune):
+    
    
     if optimizer == 'Adam':
         optimizer = Adam(lr = lr)
