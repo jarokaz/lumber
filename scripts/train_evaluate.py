@@ -2,8 +2,9 @@ import tensorflow as tf
 
 from tensorflow.python.keras.optimizers import Adadelta, Adam
 from tensorflow.python.keras.estimator import model_to_estimator
-from tensorflow.python.keras.applications.vgg16 import VGG16
 from tensorflow.python.keras import Model, Input
+from tensorflow.python.keras.applications.vgg16 import VGG16
+from tensorflow.python.keras.applications.xception import Xception
 from tensorflow.python.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from tensorflow.python.keras import regularizers
 
@@ -45,7 +46,7 @@ def _parse(example_proto, augment):
     return  image, label
 
   
-def input_fn(file, train, batch_size=64, buffer_size=10000):
+def input_fn(file, train, batch_size=32, buffer_size=10000):
    
     if train:
         rep = None 
@@ -70,7 +71,7 @@ def input_fn(file, train, batch_size=64, buffer_size=10000):
     return {"image": features}, labels
 
 
-def my_cnn(image_shape, input_name, optimizer, loss, metrics ):
+def mycnn(image_shape, input_name, optimizer, loss, metrics ):
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
     x = Conv2D(64, (3, 3), activation='relu')(x)
@@ -89,6 +90,56 @@ def my_cnn(image_shape, input_name, optimizer, loss, metrics ):
     return model
 
  
+def vgg16_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
+      
+    x = Input(shape=image_shape, name=input_name)
+    base_model = VGG16(weights='imagenet',
+                   include_top=False,
+                   input_tensor=x)
+    
+    for layer in base_model.layers:
+        layer.trainable =  False
+
+    conv_base = base_model.output
+   
+    a = Flatten()(conv_base)
+    a = Dense(1024, activation='relu')(a)
+    a = Dropout(0.5)(a)
+    y = Dense(NUM_CLASSES, activation='softmax')(a)
+    
+    model = Model(inputs=x, outputs=y)
+    
+    model.compile(loss=loss,
+                  optimizer=optimizer,
+                  metrics=metrics)
+ 
+    return model
+
+
+def xception_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
+      
+    x = Input(shape=image_shape, name=input_name)
+    base_model = Xception(weights='imagenet',
+                   include_top=False,
+                   input_tensor=x)
+    
+    for layer in base_model.layers:
+        layer.trainable =  False
+
+    a = Flatten()(conv_base)
+    a = Dense(1024, activation='relu')(a)
+    a = Dropout(0.5)(a)
+    y = Dense(NUM_CLASSES, activation='softmax')(a)
+    
+    model = Model(inputs=x, outputs=y)
+    
+    model.compile(loss=loss,
+                  optimizer=optimizer,
+                  metrics=metrics)
+ 
+    return model
+
+
 
 def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_size, max_steps):
     
@@ -109,8 +160,16 @@ IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
 INPUT_NAME = 'image'
 
-
-def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps,  lr, l2):
+def main(model,
+        training,
+        validation,
+        ckpt_dir,
+        optimizer,
+        batch_size,
+        max_steps,
+        lr,
+        l2,
+        fine_tune):
    
     if optimizer == 'Adam':
         optimizer = Adam(lr = lr)
@@ -123,12 +182,20 @@ def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_
     metrics = ['categorical_accuracy']
     loss = 'categorical_crossentropy'
     
-    model_fn =  my_cnn(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics )  
+    if model == 'vgg16':
+        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tune) 
+    elif model == 'xception':
+        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tun)
+    elif model == 'mycnn':
+        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics)
         
+    model_fn.summary()
+    
+    
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
-                          train_file = train_file,
-                          valid_file = valid_file,
+                          train_file = training,
+                          valid_file = validation,
                           ckpt_folder = ckpt_folder,
                           batch_size = batch_size,
                           max_steps = max_steps)  
@@ -139,88 +206,100 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser("Training, evaluation worklfow")
         
     parser.add_argument(
-          '--model',
-          type=str,
-          default = 'MYCNN',
-          help='Model to train')
+        '--model',
+        type=str,
+        default = 'mycnn',
+        choices = ['mycnn', 'vgg16', 'densenet'],  
+        help='Model to train')
     
     parser.add_argument(
-          '--training',
-          type=str,
-          default = '../data/tfrecords/training.tfrecords',
-          help='Training file')
+        '--training',
+        type=str,
+        default = '../data/tfrecords/training.tfrecords',
+        help='Training file')
         
     parser.add_argument(
-          '--validation',
-          type=str,
-          default = '../data/tfrecords/validation.tfrecords',
-          help='Validation file')
+        '--validation',
+        type=str,
+        default = '../data/tfrecords/validation.tfrecords',
+        help='Validation file')
       
     parser.add_argument(
-          '--ckpt',
-          type=str,
-          default='../checkpoints',
-          help='Checkpoint dir')
-    
+        '--ckpt_dir',
+        type=str,
+        default='../checkpoints',
+        help='Checkpoint dir')
+      
     parser.add_argument(
-          '--optimizer',
-          type=str,
-          default = 'Adam',
-          help='Optimizer to use')
+        '--ckpt',
+        type=str,
+        help='The existing checkpoint to start with')
         
     parser.add_argument(
-          '--batch-size',
-          type=int,
-          default=64,
-          help='Batch size')
-    
-    parser.add_argument(
-          '--max-steps',
-          type=int,
-          default=5000,
-          help='Max steps')
+        '--optimizer',
+        type=str,
+        default = 'Adam',
+        choices = ['Adam'],
+        help='Optimizer to use')
         
     parser.add_argument(
-          '--lr',
-          type=float,
-          default=0.001,
-          help='Learning rate') 
+        '--batch-size',
+        type=int,
+        default=64,
+        help='Batch size')
     
     parser.add_argument(
-          '--l2',
-          type=float,
-          default=0,
-          help='L2 regularization')
+        '--max-steps',
+        type=int,
+        default=5000,
+        help='Max steps')
+        
+    parser.add_argument(
+        '--lr',
+        type=float,
+        default=0.001,
+        help='Learning rate') 
+    
+    parser.add_argument(
+        '--l2',
+        type=float,
+        default=0,
+        help='L2 regularization')
+    
+    parser.add_argument(
+        '--tune',
+        nargs='*',
+        help='List of layers to fine tune')
     
     args = parser.parse_args()
-
                           
     if not os.path.exists(args.training):
-        print("Training file does not exist")
+        print("Training file {0} does not exist".format(args.training))
         exit()
     
     if not os.path.exists(args.validation):
-        print("Validation file does not exist")
+        print("Validation file {0} does not exist.format(args.validation)")
         exit()
     
-    if not os.path.isdir(args.ckpt):
-        print("Checkpoint directory does not exist !!!")
+    if not os.path.isdir(args.ckpt_dir):
+        print("Checkpoint directory {0} does not exist.".format(args.ckpt_folder))
         exit()
-        
-    if args.optimizer not in ['Adam']:
-        print("Unsupported optimizer")
+     
+    if args.ckpt != None and not os.path.isdir(join(args.ckpt_dir, args.ckpt)):
+        print("Checkpoint {0} does not exist.".format(args.ckpt))
         exit()
-   
-    if args.model not in ['MYCNN']:
-        print("Unsupported model")
-        exit()
-                                                  
+                                                 
     start_time = strftime('%d-%m-%H%M')
-    ckpt_folder = join(args.ckpt, args.model + '_' + start_time)                
-    summary_file = join(args.ckpt, args.model + '_' + start_time + '.txt' )
+    if args.ckpt != None:
+        ckpt_folder = join(args.ckpt_dir, args.ckpt)
+        summary_file = ckpt_folder + '.txt' 
+    else:
+        ckpt_folder = join(args.ckpt_dir, args.model + '_' + start_time)                
+        summary_file = join(args.ckpt_dir, args.model + '_' + start_time + '.txt' )
+
 
     # Logg training parameters
-    with open(summary_file, 'w') as logfile:
+    with open(summary_file, 'a+') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(args.model))
         logfile.write("Hyperparameters:\n")
@@ -231,17 +310,24 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
-
-   
-
+        
+        if args.tune != None:
+            logfile.write("  Fine tuning the following layers: {0}\n".format(args.tune))
+        
+        if (args.ckpt == None):
+            logfile.write("  Starting from scratch. New checkpoint folder {0} created\n".format(ckpt_folder))
+        else:
+            logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
+            
+    
     main(args.model,
-         args.training,
-         args.validation,
-         ckpt_folder,
-         args.optimizer,
-         args.batch_size,
-         args.max_steps,
-         args.lr,
-         args.l2
+        args.training,
+        args.validation,
+        ckpt_folder,
+        args.optimizer,
+        args.batch_size,
+        args.max_steps,
+        args.lr,
+        args.l2,
+        args.tune
         )
-

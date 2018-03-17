@@ -45,7 +45,7 @@ def _parse(example_proto, augment):
     return  image, label
 
   
-def input_fn(file, train, batch_size=32, buffer_size=10000):
+def input_fn(file, train, batch_size=64, buffer_size=10000):
    
     if train:
         rep = None 
@@ -70,30 +70,23 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
     return {"image": features}, labels
 
 
+def my_cnn(image_shape, input_name, optimizer, loss, metrics ):
+    inputs = Input(shape=image_shape, name=input_name)
+    x = Conv2D(32, (3, 3), activation='relu')(inputs)
+    x = Conv2D(64, (3, 3), activation='relu')(x)
+    x = MaxPooling2D(pool_size=(2, 2))(x)
+    x = Dropout(0.25)(x)
+    x = Flatten()(x)
+    x = Dense(128, activation='relu')(x)
+    x = Dropout(0.5)(x)
+    y = Dense(7, activation='softmax')(x)
 
-def VGG16Full(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
-      
-    input = Input(shape=image_shape, name=input_name)
-    conv_base = VGG16(weights='imagenet',
-                   include_top=False,
-                   input_tensor=input)
-    
-    for layer in conv_base.layers:
-        layer.trainable = True if fine_tuning else False
+    model = Model(inputs=inputs, outputs=y)
 
-    a = Flatten()(conv_base.output)
-    a = Dense(1024, activation='relu')(a)
-    y = Dense(NUM_CLASSES, activation='softmax')(a)
-    
-    model = Model(inputs=input, outputs=y)
-    
-    model.compile(loss=loss,
-                  optimizer=optimizer,
+    model.compile(optimizer = optimizer, 
+                  loss=loss, 
                   metrics=metrics)
- 
     return model
-
-
 
  
 
@@ -107,7 +100,7 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
 
-    tf.logging.set_verbosity(tf.logging.INFO)
+    #tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
    
     
@@ -117,7 +110,7 @@ NUM_CLASSES = 7
 INPUT_NAME = 'image'
 
 
-def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps,  lr, l2, fine_tuning):
+def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps,  lr, l2):
    
     if optimizer == 'Adam':
         optimizer = Adam(lr = lr)
@@ -130,8 +123,7 @@ def main(model, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_
     metrics = ['categorical_accuracy']
     loss = 'categorical_crossentropy'
     
-    if model == 'VGG16Full':
-        model_fn =  VGG16Full(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tuning)  
+    model_fn =  my_cnn(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics )  
         
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
@@ -149,7 +141,7 @@ if __name__ == '__main__':
     parser.add_argument(
           '--model',
           type=str,
-          default = 'VGG16Full',
+          default = 'MYCNN',
           help='Model to train')
     
     parser.add_argument(
@@ -200,13 +192,6 @@ if __name__ == '__main__':
           default=0,
           help='L2 regularization')
     
-    parser.add_argument(
-          '--fine_tuning',
-          type=float,
-          default=0,
-          help='Finie tuning mode')
-        
-  
     args = parser.parse_args()
 
                           
@@ -226,7 +211,7 @@ if __name__ == '__main__':
         print("Unsupported optimizer")
         exit()
    
-    if args.model not in ['VGG16Full']:
+    if args.model not in ['MYCNN']:
         print("Unsupported model")
         exit()
                                                   
@@ -234,7 +219,7 @@ if __name__ == '__main__':
     ckpt_folder = join(args.ckpt, args.model + '_' + start_time)                
     summary_file = join(args.ckpt, args.model + '_' + start_time + '.txt' )
 
-    # Logg training parameters
+    # Log training parameters
     with open(summary_file, 'w') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(args.model))
@@ -246,7 +231,7 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
-        logfile.write("  Fine tuning: {0}\n".format('Yes' if args.fine_tuning == 1 else 'No'))
+
    
 
     main(args.model,
@@ -257,7 +242,6 @@ if __name__ == '__main__':
          args.batch_size,
          args.max_steps,
          args.lr,
-         args.l2,
-         args.fine_tuning
+         args.l2
         )
 
