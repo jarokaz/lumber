@@ -97,15 +97,7 @@ def main(snapshots_dir, output_dir, validation_percentage):
     if not os.path.isdir(join(snapshots_dir, DEVELOPMENT_SUBFOLDER_NAME)):
         print("Snapshots directory does not exist or folder structure incorrect !!!")
         return
-    
-    if len(os.listdir(join(snapshots_dir, DEVELOPMENT_SUBFOLDER_NAME))) != 0:
-        print("Snapshot folders not empty")
-        return
-        
-    if len(os.listdir(join(snapshots_dir, TESTING_SUBFOLDER_NAME))) != 0:
-        print("Snapshot folders not empty")
-        return
-    
+   
     if len(os.listdir(output_dir)) != 0:
         print("TFRecords folders not empty")
         return
