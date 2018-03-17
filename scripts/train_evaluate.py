@@ -71,7 +71,7 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
     return {"image": features}, labels
 
 
-def mycnn(image_shape, input_name, optimizer, loss, metrics ):
+def mycnn(image_shape, input_name):
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
     x = Conv2D(64, (3, 3), activation='relu')(x)
@@ -84,13 +84,10 @@ def mycnn(image_shape, input_name, optimizer, loss, metrics ):
 
     model = Model(inputs=inputs, outputs=y)
 
-    model.compile(optimizer = optimizer, 
-                  loss=loss, 
-                  metrics=metrics)
     return model
 
  
-def vgg16_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
+def vgg16_trunk(image_shape, input_name, tune=[]):
       
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
@@ -98,7 +95,7 @@ def vgg16_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=F
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  False
+        layer.trainable =  True if layer in tune else False
 
     conv_base = base_model.output
    
@@ -109,14 +106,10 @@ def vgg16_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=F
     
     model = Model(inputs=x, outputs=y)
     
-    model.compile(loss=loss,
-                  optimizer=optimizer,
-                  metrics=metrics)
- 
     return model
 
 
-def xception_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tuning=False):
+def xception_trunk(image_shape, input_name, optimizer, loss, metrics, tune=[]):
       
     x = Input(shape=image_shape, name=input_name)
     base_model = Xception(weights='imagenet',
@@ -124,7 +117,7 @@ def xception_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tunin
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  False
+        layer.trainable =  True if layer in tune else False
 
     a = Flatten()(conv_base)
     a = Dense(1024, activation='relu')(a)
@@ -132,11 +125,7 @@ def xception_trunk(image_shape, input_name, optimizer, loss, metrics, fine_tunin
     y = Dense(NUM_CLASSES, activation='softmax')(a)
     
     model = Model(inputs=x, outputs=y)
-    
-    model.compile(loss=loss,
-                  optimizer=optimizer,
-                  metrics=metrics)
- 
+
     return model
 
 
@@ -153,8 +142,21 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
 
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+
    
-    
+def display_model_summary(model):
+     
+    if model == 'vgg16':
+        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
+    elif model == 'xception':
+        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
+    elif model == 'mycnn':
+        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
+
+    model_fn.summary()
+
+
+ 
     
 IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
@@ -169,7 +171,7 @@ def main(model,
         max_steps,
         lr,
         l2,
-        fine_tune):
+        tune):
    
     if optimizer == 'Adam':
         optimizer = Adam(lr = lr)
@@ -183,12 +185,16 @@ def main(model,
     loss = 'categorical_crossentropy'
     
     if model == 'vgg16':
-        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tune) 
+        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME, tune) 
     elif model == 'xception':
-        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics, fine_tun)
+        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME, tune)
     elif model == 'mycnn':
-        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME, optimizer, loss, metrics)
-        
+        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
+     
+    model_fn.compile(loss=loss,
+                  optimizer=optimizer,
+                  metrics=metrics)
+ 
     model_fn.summary()
     
     
@@ -211,6 +217,11 @@ if __name__ == '__main__':
         default = 'mycnn',
         choices = ['mycnn', 'vgg16', 'densenet'],  
         help='Model to train')
+
+    parser.add_argument(
+        '--summary',
+        action='store_true',
+        help='Display model summary')
     
     parser.add_argument(
         '--training',
@@ -288,6 +299,11 @@ if __name__ == '__main__':
     if args.ckpt != None and not os.path.isdir(join(args.ckpt_dir, args.ckpt)):
         print("Checkpoint {0} does not exist.".format(args.ckpt))
         exit()
+
+    if args.summary:
+       display_model_summary(args.model) 
+       exit()
+
                                                  
     start_time = strftime('%d-%m-%H%M')
     if args.ckpt != None:
