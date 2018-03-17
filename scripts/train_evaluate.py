@@ -130,6 +130,18 @@ def xception_trunk(image_shape, input_name):
 
     return model
 
+   
+def display_model_summary(model):
+     
+    if model == 'vgg16':
+        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
+    elif model == 'xception':
+        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
+    elif model == 'basenet':
+        model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
+
+    model_fn.summary()
+
 
 
 def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_size, max_steps):
@@ -145,41 +157,15 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
-   
-def display_model_summary(model):
-     
-    if model == 'vgg16':
-        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
-    elif model == 'xception':
-        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
-    elif model == 'basenet':
-        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
-
-    model_fn.summary()
-
     
 IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
 INPUT_NAME = 'image'
 
-def main(model,
-        training,
-        validation,
-        ckpt_dir,
-        optimizer,
-        batch_size,
-        max_steps,
-        lr,
-        l2)
-    
-   
+def main(model, training, validation, ckpt_dir, optimizer, batch_size, max_steps, lr):
+         
     if optimizer == 'Adam':
         optimizer = Adam(lr = lr)
-        
-    if l2 > 0:
-        regularizer = regularizers.l2(l2)
-    else:
-        regularizer = None
 
     metrics = ['categorical_accuracy']
     loss = 'categorical_crossentropy'
@@ -189,7 +175,7 @@ def main(model,
     elif model == 'xception':
         model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
     elif model == 'basenet':
-        model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
+        model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
      
     model_fn.compile(loss=loss,
                   optimizer=optimizer,
@@ -212,8 +198,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--model',
         type=str,
-        default = 'mycnn',
-        choices = ['mycnn', 'vgg16', 'densenet'],  
+        default = 'basenet',
+        choices = ['basenet', 'vgg16', 'xception'],  
         help='Model to train')
 
     parser.add_argument(
@@ -268,13 +254,7 @@ if __name__ == '__main__':
         type=float,
         default=0.001,
         help='Learning rate') 
-    
-    parser.add_argument(
-        '--l2',
-        type=float,
-        default=0,
-        help='L2 regularization')
-   
+  
     args = parser.parse_args()
                           
     if not os.path.exists(args.training):
@@ -314,7 +294,6 @@ if __name__ == '__main__':
         logfile.write("Hyperparameters:\n")
         logfile.write("  Optimizer: {0}\n".format(args.optimizer))
         logfile.write("  Learning rate: {0}\n".format(args.lr))
-        logfile.write("  L2 regularization: {0}\n".format(args.l2))
         logfile.write("  Training file: {0}\n".format(args.training))
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
@@ -325,7 +304,6 @@ if __name__ == '__main__':
         else:
             logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
             
-    
     main(args.model,
         args.training,
         args.validation,
@@ -333,6 +311,4 @@ if __name__ == '__main__':
         args.optimizer,
         args.batch_size,
         args.max_steps,
-        args.lr,
-        args.l2
-        )
+        args.lr)
