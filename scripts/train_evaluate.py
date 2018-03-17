@@ -17,9 +17,9 @@ from time import strftime, time
 from os.path import join
 import os
 
-
  
 def scale_image(image):
+
     """Scales image pixesl between -1 and 1"""
     image = image / 127.5
     image = image - 1.
@@ -27,6 +27,7 @@ def scale_image(image):
 
 
 def _parse(example_proto, augment):
+
     features = {"image": tf.FixedLenFeature((), tf.string, default_value=""),
                 "label": tf.FixedLenFeature((), tf.int64, default_value=0)}
 
@@ -71,7 +72,8 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
     return {"image": features}, labels
 
 
-def mycnn(image_shape, input_name):
+def basenet(image_shape, input_name):
+
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
     x = Conv2D(64, (3, 3), activation='relu')(x)
@@ -87,7 +89,7 @@ def mycnn(image_shape, input_name):
     return model
 
  
-def vgg16_trunk(image_shape, input_name, tune=[]):
+def vgg16_trunk(image_shape, input_name):
       
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
@@ -95,7 +97,7 @@ def vgg16_trunk(image_shape, input_name, tune=[]):
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  True if layer.name in tune else False
+        layer.trainable =  False
 
     conv_base = base_model.output
    
@@ -109,7 +111,7 @@ def vgg16_trunk(image_shape, input_name, tune=[]):
     return model
 
 
-def xception_trunk(image_shape, input_name, optimizer, loss, metrics, tune=[]):
+def xception_trunk(image_shape, input_name):
       
     x = Input(shape=image_shape, name=input_name)
     base_model = Xception(weights='imagenet',
@@ -117,7 +119,7 @@ def xception_trunk(image_shape, input_name, optimizer, loss, metrics, tune=[]):
                    input_tensor=x)
     
     for layer in base_model.layers:
-        layer.trainable =  True if layer.name in tune else False
+        layer.trainable =  False
 
     a = Flatten()(conv_base)
     a = Dense(1024, activation='relu')(a)
@@ -150,13 +152,11 @@ def display_model_summary(model):
         model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
     elif model == 'xception':
         model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
-    elif model == 'mycnn':
+    elif model == 'basenet':
         model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
 
     model_fn.summary()
 
-
- 
     
 IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
@@ -170,8 +170,7 @@ def main(model,
         batch_size,
         max_steps,
         lr,
-        l2,
-        tune):
+        l2)
     
    
     if optimizer == 'Adam':
@@ -186,18 +185,16 @@ def main(model,
     loss = 'categorical_crossentropy'
     
     if model == 'vgg16':
-        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME, tune) 
+        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
     elif model == 'xception':
-        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME, tune)
-    elif model == 'mycnn':
+        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
+    elif model == 'basenet':
         model_fn = mycnn(IMAGE_SHAPE, INPUT_NAME)
      
     model_fn.compile(loss=loss,
                   optimizer=optimizer,
                   metrics=metrics)
  
-    model_fn.summary()
-    
     
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
@@ -277,12 +274,7 @@ if __name__ == '__main__':
         type=float,
         default=0,
         help='L2 regularization')
-    
-    parser.add_argument(
-        '--tune',
-        nargs='*',
-        help='List of layers to fine tune')
-    
+   
     args = parser.parse_args()
                           
     if not os.path.exists(args.training):
@@ -327,10 +319,7 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation))         
         logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
-        
-        if args.tune != None:
-            logfile.write("  Fine tuning the following layers: {0}\n".format(args.tune))
-        
+       
         if (args.ckpt == None):
             logfile.write("  Starting from scratch. New checkpoint folder {0} created\n".format(ckpt_folder))
         else:
@@ -345,6 +334,5 @@ if __name__ == '__main__':
         args.batch_size,
         args.max_steps,
         args.lr,
-        args.l2,
-        args.tune
+        args.l2
         )
