@@ -16,7 +16,7 @@ def clone_sound_samples(image, group, size, outputpath, file_type):
     group = group.reset_index(drop=True)
     cols = group['min_x'].nunique()
     rows = group['min_y'].nunique()
-    label = ALLOWED_LABELS[0]
+    label = SOUND_LABEL 
     prefix = group.iloc[0]['image'] + '_' + label + '_'
     filenumber = 1
     for col in range(cols-1):
@@ -144,6 +144,7 @@ DEVELOPMENT_SUBFOLDER_NAME = 'development'
 SNAPSHOT_SIZE = 112
 SNAPSHOT_FILETYPE = ".PNG"
 SNAPSHOT_STRIDE = 10
+SOUND_LABEL = 'sound'
 
 
     
