@@ -120,6 +120,8 @@ def xception_trunk(image_shape, input_name):
     
     for layer in base_model.layers:
         layer.trainable =  False
+    
+    conv_base = base_model.output
 
     a = Flatten()(conv_base)
     a = Dense(1024, activation='relu')(a)
