@@ -88,7 +88,7 @@ def basenet(image_shape, input_name):
 
     return model
  
-def vgg16base1(image_shape, input_name):
+def vgg16base1(image_shape, input_name, hidden_units=1024):
     
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
@@ -101,7 +101,7 @@ def vgg16base1(image_shape, input_name):
     conv_base = base_model.output
   
     a = Flatten()(conv_base)
-    a = Dense(1024, activation='relu')(a)
+    a = Dense(hidden_units, activation='relu')(a)
     a = Dropout(0.5)(a)
     y = Dense(NUM_CLASSES, activation='softmax')(a)
     
@@ -110,7 +110,7 @@ def vgg16base1(image_shape, input_name):
     return model
   
  
-def vgg16base2(image_shape, input_name):
+def vgg16base2(image_shape, input_name, hidden_units):
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
                    include_top=False,
@@ -123,7 +123,7 @@ def vgg16base2(image_shape, input_name):
 
     a = MaxPooling2D(pool_size=(4,4))(conv_base) 
     a = Flatten()(a)
-    a = Dense(1024, activation='relu')(a)
+    a = Dense(hidden_units, activation='relu')(a)
     a = Dropout(0.5)(a)
     y = Dense(NUM_CLASSES, activation='softmax')(a)
     
@@ -131,20 +131,36 @@ def vgg16base2(image_shape, input_name):
     
     return model
   
-def display_model_summary(model):
+def display_model_summary(model, hidden_units):
      
     if model == 'vgg16base1':
-        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME) 
+        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     if model == 'vgg16base2':
-        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME) 
+        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     elif model == 'basenet':
         model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
 
     model_fn.summary()
 
+    
+IMAGE_SHAPE = (112, 112, 3,)
+NUM_CLASSES = 7
+INPUT_NAME = 'image'
 
 
-def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_size, max_steps):
+def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr):
+
+    if optimizer == 'Adam':
+        optimizer = Adam(lr = lr)
+
+    metrics = ['categorical_accuracy']
+    loss = 'categorical_crossentropy'
+    
+    if model == 'vgg16base1':
+        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
+    elif model == 'vgg16base2':
+        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
+
     
     estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
     
@@ -157,35 +173,8 @@ def my_train_and_evaluate(model_fn, train_file, valid_file, ckpt_folder, batch_s
     tf.logging.set_verbosity(tf.logging.INFO)
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
-    
-IMAGE_SHAPE = (112, 112, 3,)
-NUM_CLASSES = 7
-INPUT_NAME = 'image'
 
-def main(model, training, validation, ckpt_dir, optimizer, batch_size, max_steps, lr):
-         
-    if optimizer == 'Adam':
-        optimizer = Adam(lr = lr)
 
-    metrics = ['categorical_accuracy']
-    loss = 'categorical_crossentropy'
-    
-    if model == 'vgg16base1':
-        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME) 
-    elif model == 'vgg16base2':
-        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME) 
-
-    model_fn.compile(loss=loss, optimizer=optimizer, metrics=metrics)
-    
-    # Start training  
-    my_train_and_evaluate(model_fn = model_fn, 
-                          train_file = training,
-                          valid_file = validation,
-                          ckpt_folder = ckpt_folder,
-                          batch_size = batch_size,
-                          max_steps = max_steps)  
-
- 
 # Main entry
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Training, evaluation worklfow")
@@ -196,6 +185,13 @@ if __name__ == '__main__':
         default = 'basenet',
         choices = ['basenet', 'vgg16base1', 'vgg16base2'],  
         help='Model to train')
+
+    parser.add_argument(
+        '--hidden-units',
+        type=int,
+        default = 1024,
+        help='Hidden units in the Dense layer of VGG16 based models')
+
 
     parser.add_argument(
         '--summary',
@@ -269,7 +265,7 @@ if __name__ == '__main__':
         exit()
 
     if args.summary:
-       display_model_summary(args.model) 
+       display_model_summary(args.model, args.hidden_units) 
        exit()
 
                                                  
@@ -286,6 +282,10 @@ if __name__ == '__main__':
     with open(summary_file, 'a+') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(args.model))
+
+        if args.model == 'vgg16base1' or args.model == 'vgg16base2' :
+            logfile.write("  Hidden units in the Dense layer {0}").format(args.hidden_units)
+
         logfile.write("Hyperparameters:\n")
         logfile.write("  Optimizer: {0}\n".format(args.optimizer))
         logfile.write("  Learning rate: {0}\n".format(args.lr))
@@ -299,8 +299,9 @@ if __name__ == '__main__':
         else:
             logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
             
-    main(args.model,
+    train_evaluate(args.model,
         args.training,
+        args.hidden_units,
         args.validation,
         ckpt_folder,
         args.optimizer,

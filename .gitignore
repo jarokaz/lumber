@@ -1,5 +1,5 @@
 **/data
-**/nohup.out
+**/nohup.out*
 **/models
 **/.ipynb_checkpoints
 **/*.zip
