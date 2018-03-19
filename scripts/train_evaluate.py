@@ -4,7 +4,7 @@ from tensorflow.python.keras.optimizers import Adadelta, Adam
 from tensorflow.python.keras.estimator import model_to_estimator
 from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.applications.vgg16 import VGG16
-from tensorflow.python.keras.applications.xception import Xception
+from tensorflow.python.keras.applications.vgg19 import VGG19
 from tensorflow.python.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from tensorflow.python.keras import regularizers
 
@@ -87,10 +87,9 @@ def basenet(image_shape, input_name):
     model = Model(inputs=inputs, outputs=y)
 
     return model
-
  
-def vgg16_trunk(image_shape, input_name):
-      
+def vgg16base1(image_shape, input_name):
+    
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
                    include_top=False,
@@ -98,9 +97,9 @@ def vgg16_trunk(image_shape, input_name):
     
     for layer in base_model.layers:
         layer.trainable =  False
-
+    
     conv_base = base_model.output
-   
+  
     a = Flatten()(conv_base)
     a = Dense(1024, activation='relu')(a)
     a = Dropout(0.5)(a)
@@ -109,36 +108,36 @@ def vgg16_trunk(image_shape, input_name):
     model = Model(inputs=x, outputs=y)
     
     return model
-
-
-def xception_trunk(image_shape, input_name):
-      
+  
+ 
+def vgg16base2(image_shape, input_name):
+    
     x = Input(shape=image_shape, name=input_name)
-    base_model = Xception(weights='imagenet',
+    base_model = VGG16(weights='imagenet',
                    include_top=False,
                    input_tensor=x)
     
     for layer in base_model.layers:
         layer.trainable =  False
     
-    conv_base = base_model.output
+    conv_base = base_model.get_layer('block4_conv3').output
 
-    a = Flatten()(conv_base)
+    a = MaxPooling2D(pool_size=(4,4))(conv_base) 
+    a = Flatten()(a)
     a = Dense(1024, activation='relu')(a)
     a = Dropout(0.5)(a)
     y = Dense(NUM_CLASSES, activation='softmax')(a)
     
     model = Model(inputs=x, outputs=y)
-
+    
     return model
-
-   
+  
 def display_model_summary(model):
      
-    if model == 'vgg16':
-        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
-    elif model == 'xception':
-        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
+    if model == 'vgg16base1':
+        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME) 
+    if model == 'vgg16base2':
+        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME) 
     elif model == 'basenet':
         model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
 
@@ -172,17 +171,12 @@ def main(model, training, validation, ckpt_dir, optimizer, batch_size, max_steps
     metrics = ['categorical_accuracy']
     loss = 'categorical_crossentropy'
     
-    if model == 'vgg16':
-        model_fn =  vgg16_trunk(IMAGE_SHAPE, INPUT_NAME) 
-    elif model == 'xception':
-        model_fn = xception_trunk(IMAGE_SHAPE, INPUT_NAME)
-    elif model == 'basenet':
-        model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
-     
-    model_fn.compile(loss=loss,
-                  optimizer=optimizer,
-                  metrics=metrics)
- 
+    if model == 'vgg16base1':
+        model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME) 
+    elif model == 'vgg16base2':
+        model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME) 
+
+    model_fn.compile(loss=loss, optimizer=optimizer, metrics=metrics)
     
     # Start training  
     my_train_and_evaluate(model_fn = model_fn, 
@@ -201,7 +195,7 @@ if __name__ == '__main__':
         '--model',
         type=str,
         default = 'basenet',
-        choices = ['basenet', 'vgg16', 'xception'],  
+        choices = ['basenet', 'vgg16base1', 'vgg16base2'],  
         help='Model to train')
 
     parser.add_argument(
