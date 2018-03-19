@@ -160,6 +160,8 @@ def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, opt
         model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     elif model == 'vgg16base2':
         model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
+    elif model == 'basenet':
+        model_fn =  basenet(IMAGE_SHAPE, INPUT_NAME) 
 
     
     estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
