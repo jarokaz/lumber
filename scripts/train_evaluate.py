@@ -111,7 +111,6 @@ def vgg16base1(image_shape, input_name):
   
  
 def vgg16base2(image_shape, input_name):
-    
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
                    include_top=False,
