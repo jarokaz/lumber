@@ -72,7 +72,7 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
     return {"image": features}, labels
 
 
-def basenet(image_shape, input_name):
+def basenet(image_shape, input_name, hidden_units):
 
     inputs = Input(shape=image_shape, name=input_name)
     x = Conv2D(32, (3, 3), activation='relu')(inputs)
@@ -80,15 +80,15 @@ def basenet(image_shape, input_name):
     x = MaxPooling2D(pool_size=(2, 2))(x)
     x = Dropout(0.25)(x)
     x = Flatten()(x)
-    x = Dense(128, activation='relu')(x)
+    x = Dense(hidden_units, activation='relu')(x)
     x = Dropout(0.5)(x)
-    y = Dense(7, activation='softmax')(x)
+    y = Dense(NUM_CLASSES, activation='softmax')(x)
 
     model = Model(inputs=inputs, outputs=y)
 
     return model
  
-def vgg16base1(image_shape, input_name, hidden_units=1024):
+def vgg16base1(image_shape, input_name, hidden_units):
     
     x = Input(shape=image_shape, name=input_name)
     base_model = VGG16(weights='imagenet',
@@ -138,7 +138,7 @@ def display_model_summary(model, hidden_units):
     if model == 'vgg16base2':
         model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     elif model == 'basenet':
-        model_fn = basenet(IMAGE_SHAPE, INPUT_NAME)
+        model_fn = basenet(IMAGE_SHAPE, INPUT_NAME, hidden_units)
 
     model_fn.summary()
 
@@ -149,20 +149,21 @@ INPUT_NAME = 'image'
 
 
 def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr):
-
-    if optimizer == 'Adam':
-        optimizer = Adam(lr = lr)
-
-    metrics = ['categorical_accuracy']
-    loss = 'categorical_crossentropy'
     
     if model == 'vgg16base1':
         model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     elif model == 'vgg16base2':
         model_fn =  vgg16base2(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
     elif model == 'basenet':
-        model_fn =  basenet(IMAGE_SHAPE, INPUT_NAME) 
+        model_fn =  basenet(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
 
+    if optimizer == 'Adam':
+        optimizer = Adam(lr = lr)
+
+    metrics = ['categorical_accuracy']
+    loss = 'categorical_crossentropy'
+
+    model_fn.compile(loss=loss, optimizer=optimizer, metrics=metrics)
     
     estimator = model_to_estimator(keras_model = model_fn, model_dir=ckpt_folder)
     
@@ -191,9 +192,8 @@ if __name__ == '__main__':
     parser.add_argument(
         '--hidden-units',
         type=int,
-        default = 1024,
-        help='Hidden units in the Dense layer of VGG16 based models')
-
+        default = 128,
+        help='Hidden units')
 
     parser.add_argument(
         '--summary',
@@ -284,11 +284,8 @@ if __name__ == '__main__':
     with open(summary_file, 'a+') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
         logfile.write("Model trained: {0}\n".format(args.model))
-
-        if args.model == 'vgg16base1' or args.model == 'vgg16base2' :
-            logfile.write("  Hidden units in the Dense layer {0}").format(args.hidden_units)
-
         logfile.write("Hyperparameters:\n")
+        logfile.write("  Hidden units: {0}\n".format(args.hidden_units))
         logfile.write("  Optimizer: {0}\n".format(args.optimizer))
         logfile.write("  Learning rate: {0}\n".format(args.lr))
         logfile.write("  Training file: {0}\n".format(args.training))
@@ -302,8 +299,8 @@ if __name__ == '__main__':
             logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
             
     train_evaluate(args.model,
-        args.training,
         args.hidden_units,
+        args.training,
         args.validation,
         ckpt_folder,
         args.optimizer,
