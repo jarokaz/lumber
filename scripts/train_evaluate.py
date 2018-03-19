@@ -148,7 +148,7 @@ NUM_CLASSES = 7
 INPUT_NAME = 'image'
 
 
-def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr):
+def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr, eval_steps, export_format):
     
     if model == 'vgg16base1':
         model_fn =  vgg16base1(IMAGE_SHAPE, INPUT_NAME, hidden_units) 
@@ -171,9 +171,10 @@ def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, opt
     valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False)
 
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
-    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, steps=None)
+    eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, 
+                                      steps=eval_steps)
 
-    tf.logging.set_verbosity(tf.logging.INFO)
+
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
 
@@ -181,7 +182,9 @@ def train_evaluate(model, hidden_units, train_file, valid_file, ckpt_folder, opt
 # Main entry
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("Training, evaluation worklfow")
-        
+
+    ### Model parameters
+    
     parser.add_argument(
         '--model',
         type=str,
@@ -195,11 +198,35 @@ if __name__ == '__main__':
         default = 128,
         help='Hidden units')
 
+    ### Trainer parameters
+           
     parser.add_argument(
-        '--summary',
-        action='store_true',
-        help='Display model summary')
+        '--optimizer',
+        type=str,
+        default = 'Adam',
+        choices = ['Adam'],
+        help='Optimizer to use')
+        
+    parser.add_argument(
+        '--lr',
+        type=float,
+        default=0.001,
+        help='Learning rate') 
     
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=64,
+        help='Batch size')
+
+
+    ### Training session parameters
+    parser.add_argument(
+        '--max-steps',
+        type=int,
+        default=5000,
+        help='Max steps')
+       
     parser.add_argument(
         '--training',
         type=str,
@@ -222,32 +249,38 @@ if __name__ == '__main__':
         '--ckpt',
         type=str,
         help='The existing checkpoint to start with')
-        
-    parser.add_argument(
-        '--optimizer',
-        type=str,
-        default = 'Adam',
-        choices = ['Adam'],
-        help='Optimizer to use')
-        
-    parser.add_argument(
-        '--batch-size',
-        type=int,
-        default=64,
-        help='Batch size')
     
     parser.add_argument(
-        '--max-steps',
+        '--eval-steps',
         type=int,
-        default=5000,
-        help='Max steps')
-        
-    parser.add_argument(
-        '--lr',
-        type=float,
-        default=0.001,
-        help='Learning rate') 
+        default = 1000,
+        help='Number of steps to run evaluation for at each checkpoint')
   
+    parser.add_argument(
+        '--export-format',
+        type=str,
+        choices = ['JSON', 'CSV', 'EXAMPLE'],
+        default = '',
+        help='The format of the exportted SaveModel')
+    
+    ### Utility commends
+    
+    parser.add_argument(
+        '--summary',
+        action='store_true',
+        help='Display model summary')
+    
+    parser.add_argument(
+        '--verbosity',
+        default = 'INFO',
+        choices = [
+          'DEBUG',
+          'ERROR',
+          'FATAL',
+          'INFO',
+          'WARN'],
+        help='Control logging level')
+
     args = parser.parse_args()
                           
     if not os.path.exists(args.training):
@@ -259,7 +292,7 @@ if __name__ == '__main__':
         exit()
     
     if not os.path.isdir(args.ckpt_dir):
-        print("Checkpoint directory {0} does not exist.".format(args.ckpt_folder))
+        print("Checkpoint directory {0} does not exist.".format(args.ckpt_dir))
         exit()
      
     if args.ckpt != None and not os.path.isdir(join(args.ckpt_dir, args.ckpt)):
@@ -283,27 +316,36 @@ if __name__ == '__main__':
     # Logg training parameters
     with open(summary_file, 'a+') as logfile:
         logfile.write("Training run started at: {0}\n".format(strftime('%c')))
-        logfile.write("Model trained: {0}\n".format(args.model))
-        logfile.write("Hyperparameters:\n")
+        logfile.write("Model parameters:\n")
+        logfile.write("  Model trained: {0}\n".format(args.model))
         logfile.write("  Hidden units: {0}\n".format(args.hidden_units))
+        logfile.write("Trainer parameters:\n")
         logfile.write("  Optimizer: {0}\n".format(args.optimizer))
         logfile.write("  Learning rate: {0}\n".format(args.lr))
+        logfile.write("  Batch size: {0}\n".format(args.batch_size))
+        logfile.write("Training session parameters:\n")
         logfile.write("  Training file: {0}\n".format(args.training))
         logfile.write("  Validation file: {0}\n".format(args.validation))         
-        logfile.write("  Batch size: {0}\n".format(args.batch_size))
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
+        logfile.write("  Eval steps: {0}\n".format(args.eval_steps))
+        logfile.write("  Export format: {0}\n".format(args.export_format))
        
         if (args.ckpt == None):
             logfile.write("  Starting from scratch. New checkpoint folder {0} created\n".format(ckpt_folder))
         else:
             logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
             
-    train_evaluate(args.model,
-        args.hidden_units,
-        args.training,
-        args.validation,
-        ckpt_folder,
-        args.optimizer,
-        args.batch_size,
-        args.max_steps,
-        args.lr)
+    tf.logging.set_verbosity(args.verbosity)
+    
+
+    train_evaluate(model = args.model,
+        hidden_units = args.hidden_units,
+        train_file = args.training,
+        valid_file = args.validation,
+        ckpt_folder = ckpt_folder,
+        optimizer = args.optimizer,
+        batch_size = args.batch_size,
+        max_steps = args.max_steps,
+        lr = args.lr,
+        eval_steps = args.eval_steps,
+        export_format = args.export_format)
