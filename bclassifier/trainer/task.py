@@ -6,7 +6,7 @@ from time import strftime, time
 from os.path import join
 import os
 
-from model import display_model_summary, model_fn
+from trainer.model import display_model_summary, model_fn
 
  
 def scale_image(image):
