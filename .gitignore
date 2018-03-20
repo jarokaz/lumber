@@ -9,3 +9,5 @@ scripts/*.csv
 checkpoints*
 logs
 tmp
+jobdir
+
