@@ -1,5 +1,3 @@
-
-
 from tensorflow.python.keras.optimizers import Adadelta, Adam
 from tensorflow.python.keras.estimator import model_to_estimator
 from tensorflow.python.keras import Model, Input
@@ -12,7 +10,6 @@ from tensorflow.python.keras import regularizers
 IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
 INPUT_NAME = 'image'
-
 
 
 def basenet(image_shape, input_name, hidden_units):

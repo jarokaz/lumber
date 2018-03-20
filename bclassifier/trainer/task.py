@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 import argparse
 from time import strftime, time 
-from os.path import join
+from os.path import join, split
 import os
 
 from trainer.model import display_model_summary, model_fn
@@ -38,7 +38,7 @@ def _parse(example_proto, augment):
     return  image, label
 
   
-def input_fn(file, train, batch_size=32, buffer_size=10000):
+def input_fn(file, train, batch_size, buffer_size=10000):
    
     if train:
         rep = None 
@@ -76,7 +76,7 @@ INPUT_NAME = 'image'
 INPUT_SHAPE = (None, 112, 112, 3)
 
 
-def train_evaluate(model_name, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr, eval_steps, export_format):
+def train_evaluate(model_name, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr, eval_steps):
     
     estimator = model_fn(model_name, hidden_units, ckpt_folder, optimizer, lr)
     
@@ -89,7 +89,6 @@ def train_evaluate(model_name, hidden_units, train_file, valid_file, ckpt_folder
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, 
                                       steps=eval_steps,
                                       exporters=export_latest)
-
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
 
@@ -156,25 +155,18 @@ if __name__ == '__main__':
     parser.add_argument(
         '--job-dir',
         required=True,
-        help='Checkpoint dir')
-      
+        help='Job dir')
+
     parser.add_argument(
-        '--ckpt',
-        type=str,
-        help='The existing checkpoint to start with')
-    
+        '--job-name',
+        required=True,
+        help='Name of the job. Will be used to create the job subfolder under job-dir')
+   
     parser.add_argument(
         '--eval-steps',
         type=int,
         default = 1000,
         help='Number of steps to run evaluation for at each checkpoint')
-  
-    parser.add_argument(
-        '--export-format',
-        type=str,
-        choices = ['JSON', 'CSV', 'EXAMPLE'],
-        default = '',
-        help='The format of the exportted SaveModel')
     
     ### Utility commends
     
@@ -203,32 +195,21 @@ if __name__ == '__main__':
     if not os.path.exists(args.validation_file):
         print("Validation file {0} does not exist.format(args.validation)")
         exit()
-    
+
     if not os.path.isdir(args.job_dir):
-        print("Checkpoint directory {0} does not exist.".format(args.job_dir))
-        exit()
-     
-    if args.ckpt != None and not os.path.isdir(join(args.ckpt_dir, args.ckpt)):
-        print("Checkpoint {0} does not exist.".format(args.ckpt))
+        print("Job directory {0} does not exist.".format(args.job_dir))
         exit()
 
     if args.summary:
        display_model_summary(args.model, args.hidden_units) 
        exit()
-
-                                                 
-    start_time = strftime('%d-%m-%H%M')
-    if args.ckpt != None:
-        ckpt_folder = join(args.job_dir, args.ckpt)
-        summary_file = ckpt_folder + '.txt' 
-    else:
-        ckpt_folder = join(args.job_dir, args.model + '_' + start_time)                
-        summary_file = join(args.job_dir, args.model + '_' + start_time + '.txt' )
-
+    
+    summary_file = join(args.job_dir, args.job_name + '.txt') 
+    job_folder = join(args.job_dir, args.job_name)
 
     # Logg training parameters
     with open(summary_file, 'a+') as logfile:
-        logfile.write("Training run started at: {0}\n".format(strftime('%c')))
+        logfile.write("Training run started at: {0}. Job: {1}\n".format(strftime('%c'), args.job_name))
         logfile.write("Model parameters:\n")
         logfile.write("  Model trained: {0}\n".format(args.model))
         logfile.write("  Hidden units: {0}\n".format(args.hidden_units))
@@ -241,12 +222,7 @@ if __name__ == '__main__':
         logfile.write("  Validation file: {0}\n".format(args.validation_file))         
         logfile.write("  Max steps: {0}\n".format(args.max_steps))
         logfile.write("  Eval steps: {0}\n".format(args.eval_steps))
-        logfile.write("  Export format: {0}\n".format(args.export_format))
        
-        if (args.ckpt == None):
-            logfile.write("  Starting from scratch. New checkpoint folder {0} created\n".format(ckpt_folder))
-        else:
-            logfile.write("  Restarting training using the last checkpoint in {0} folder\n".format(ckpt_folder))
             
     tf.logging.set_verbosity(args.verbosity)
     
@@ -255,10 +231,9 @@ if __name__ == '__main__':
         hidden_units = args.hidden_units,
         train_file = args.training_file,
         valid_file = args.validation_file,
-        ckpt_folder = ckpt_folder,
+        ckpt_folder = job_folder,
         optimizer = args.optimizer,
         batch_size = args.batch_size,
         max_steps = args.max_steps,
         lr = args.lr,
-        eval_steps = args.eval_steps,
-        export_format = args.export_format)
+        eval_steps = args.eval_steps)

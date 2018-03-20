@@ -3,8 +3,9 @@ from PIL import Image
 import argparse
 
 def convert_array_to_string(image):
-    e = 0
-    img_str = '['
+    
+    #img_str = '['
+    img_str = ''
     for n in range(image.shape[0]):
         img_str += '['
         for i in range(image.shape[1]):
@@ -20,7 +21,7 @@ def convert_array_to_string(image):
         img_str = img_str[:-1]
         img_str += '],'
     img_str = img_str[:-1]
-    img_str += ']'
+    #img_str += ']'
     
     return img_str   
 
