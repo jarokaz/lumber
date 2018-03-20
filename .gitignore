@@ -10,4 +10,5 @@ checkpoints*
 logs
 tmp
 jobdir
+**/__pycache__
 

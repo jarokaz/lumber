@@ -62,11 +62,18 @@ def input_fn(file, train, batch_size=32, buffer_size=10000):
     
     return {"image": features}, labels
 
+def serving_input_fn():
+    input_image = tf.placeholder(shape=INPUT_SHAPE, dtype=tf.uint8)
+    image = tf.cast(input_image, tf.float32)
+    scaled_image = scale_image(image)
+    
+    return tf.estimator.export.ServingInputReceiver({'image': scaled_image}, {'image': input_image})
 
     
 IMAGE_SHAPE = (112, 112, 3,)
 NUM_CLASSES = 7
 INPUT_NAME = 'image'
+INPUT_SHAPE = (None, 112, 112, 3)
 
 
 def train_evaluate(model_name, hidden_units, train_file, valid_file, ckpt_folder, optimizer, batch_size, max_steps, lr, eval_steps, export_format):
@@ -77,8 +84,11 @@ def train_evaluate(model_name, hidden_units, train_file, valid_file, ckpt_folder
     valid_input_fn = lambda: input_fn(file=valid_file, batch_size=batch_size, train=False)
 
     train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=max_steps)
+    
+    export_latest = tf.estimator.FinalExporter("bclassifier", serving_input_fn)
     eval_spec = tf.estimator.EvalSpec(input_fn=valid_input_fn, 
-                                      steps=eval_steps)
+                                      steps=eval_steps,
+                                      exporters=export_latest)
 
 
     tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
