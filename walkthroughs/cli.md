@@ -100,7 +100,7 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --region us-central1 \
 --config config.yaml \
 --runtime-version 1.6 \
---scale-tier SCALE_TIER_STANDARD_1 \
+--scale-tier STANDARD_1 \
 -- \
 --model vgg16base2 \
 --training-file $TRAIN_DATA \
