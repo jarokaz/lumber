@@ -53,13 +53,16 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 # Manual steps
 ## Package the job 
 python setup.py sdist
+```
 
 ##
 Upload the job to Google storage
+```
 gsutil cp bclassifier-0.9.tar.gz gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
+```
 
 ## Start a training job on ML-Engine using uploaded package
-
+```
 PATH_TO_PACKAGED_TRAINER=gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
 JOB_NAME=vgg16base1_3_20_10
 JOB_DIR=gs://lumber-classifier/jobs/$JOB_NAME
@@ -81,7 +84,7 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --max-steps 100000 \
 --eval-steps 5000 \
 --verbosity INFO
-
+```
 
 ## Checking local prediction with glcoud
 
