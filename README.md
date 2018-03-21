@@ -49,9 +49,11 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --max-steps 150000 \
 --eval-steps 5000 \
 --verbosity INFO
+```
 
 # Manual steps
 ## Package the job 
+```
 python setup.py sdist
 ```
 
