@@ -158,6 +158,16 @@ if __name__ == '__main__':
         help='Job dir')
 
     parser.add_argument(
+        '--job-name',
+        required=True,
+        help='Job dir')
+ 
+    parser.add_argument(
+        '--summary-dir',
+        required=True,
+        help='Summary dir')
+  
+    parser.add_argument(
         '--eval-steps',
         type=int,
         default = 1000,
@@ -182,7 +192,41 @@ if __name__ == '__main__':
         help='Control logging level')
 
     args = parser.parse_args()
-      
+                          
+    if not os.path.exists(args.training_file):
+        print("Training file {0} does not exist".format(args.training_file))
+        exit()
+    
+    if not os.path.exists(args.validation_file):
+        print("Validation file {0} does not exist.format(args.validation_file)")
+        exit()
+
+    if not os.path.isdir(args.job_dir):
+        print("Job directory {0} does not exist.".format(args.job_dir))
+        exit()
+
+    if args.summary:
+       display_model_summary(args.model, args.hidden_units) 
+       exit()
+    
+    summary_file = join(args.summary_dir, args.job_name + '.txt') 
+
+    # Logg training parameters
+    with open(summary_file, 'a+') as logfile:
+        logfile.write("Training run started at: {0}. Job: {1}\n".format(strftime('%c'), args.job_name))
+        logfile.write("Model parameters:\n")
+        logfile.write("  Model trained: {0}\n".format(args.model))
+        logfile.write("  Hidden units: {0}\n".format(args.hidden_units))
+        logfile.write("Trainer parameters:\n")
+        logfile.write("  Optimizer: {0}\n".format(args.optimizer))
+        logfile.write("  Learning rate: {0}\n".format(args.lr))
+        logfile.write("  Batch size: {0}\n".format(args.batch_size))
+        logfile.write("Training session parameters:\n")
+        logfile.write("  Training file: {0}\n".format(args.training_file))
+        logfile.write("  Validation file: {0}\n".format(args.validation_file))         
+        logfile.write("  Max steps: {0}\n".format(args.max_steps))
+        logfile.write("  Eval steps: {0}\n".format(args.eval_steps))
+       
     tf.logging.set_verbosity(args.verbosity)
 
     train_evaluate(model_name = args.model,
