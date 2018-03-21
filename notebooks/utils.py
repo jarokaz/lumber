@@ -6,19 +6,11 @@ import googleapiclient.discovery
 import six
 
 
-def load_images():
-    images_dir = '../data/snapshots/testing'
-    test_images = ['st1035_sound_knot_57.PNG', 
-               'st1035_split_103.PNG', 
-               'st1035_dry_knot_6.PNG', 
-               'st1035_sound_10.PNG', 
-               'st1035_sound_5.PNG',
-               'st1035_sound_11.PNG']
-
-
+def load_images(images_dir, image_names):
+   
     images = []
     labels = []
-    for image_name in test_images:
+    for image_name in image_names:
         image = Image.open(join(images_dir, image_name))
         label = image_name[image_name.find('_')+1 : image_name.rfind('_')]
         images.append(np.array(image))
@@ -28,10 +20,12 @@ def load_images():
 
 
 
-def predict(project, model, image, version='v1'):
+def predict(project, model, images, version='v1'):
     
-    image = image.tolist()
-    instances = [{'image': image}]
+    instances = []
+    for image in images:
+     image_list = image.tolist()
+     instances.append({'image': image_list})
   
     service = googleapiclient.discovery.build('ml', 'v1')
     name = 'projects/{}/models/{}'.format(project, model)
@@ -57,9 +51,10 @@ def classify_images(images):
     
     results =[]
     probs = []
-    for image in images:
-        result = predict(project, model, image)
-        probabilities = result[0]['dense_2']
+    
+    response = predict(project, model, images)
+    for result in response:
+        probabilities = result['dense_2']
         argmax = probabilities.index(max(probabilities))
         results.append(labels[argmax])
         probs.append(probabilities[argmax])
