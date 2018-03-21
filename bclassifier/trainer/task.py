@@ -38,7 +38,7 @@ def _parse(example_proto, augment):
     return  image, label
 
   
-def input_fn(file, train, batch_size, buffer_size=10000):
+def input_fn(file, train, batch_size, buffer_size=4000):
    
     if train:
         rep = None 
