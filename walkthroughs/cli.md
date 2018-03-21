@@ -84,6 +84,33 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --verbosity INFO
 ```
 
+
+## Start a distributed training job using pre-configured cluster
+```
+PATH_TO_PACKAGED_TRAINER=gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
+JOB_NAME=vgg16base1_3_20_10
+JOB_DIR=gs://lumber-classifier/jobs/$JOB_NAME
+TRAIN_DATA=gs://lumber-classifier/data/training.tfrecords
+EVAL_DATA=gs://lumber-classifier/data/validation.tfrecords
+
+gcloud ml-engine jobs submit training $JOB_NAME \
+--module-name trainer.task \
+--job-dir $JOB_DIR \
+--packages $PATH_TO_PACKAGED_TRAINER \
+--region us-central1 \
+--config config.yaml \
+--runtime-version 1.6 \
+--scale-tier SCALE_TIER_STANDARD_ \
+-- \
+--model vgg16base2 \
+--training-file $TRAIN_DATA \
+--validation-file $EVAL_DATA \
+--hidden-units 512 \
+--max-steps 150000 \
+--eval-steps 5000 \
+--verbosity INFO
+```
+
 ## Checking local prediction with glcoud
 
 ```
