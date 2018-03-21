@@ -29,7 +29,7 @@ saved_model_cli show --dir current_savemodel --tag serve --signature_def serving
 
 ## Start a training job on ML-Engine
 ```
-JOB_NAME=vgg16base1-3-20-10
+JOB_NAME=vgg16base1-3_20_10
 JOB_DIR=gs://lumber-classifier/jobs/$JOB_NAME
 TRAIN_DATA=gs://lumber-classifier/data/training.tfrecords
 EVAL_DATA=gs://lumber-classifier/data/validation.tfrecords
