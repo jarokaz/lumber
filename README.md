@@ -50,7 +50,37 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --eval-steps 5000 \
 --verbosity DEBUG
 
+# Manual steps
+## Package the job 
+python setup.py sdist
 
+##
+Upload the job to Google storage
+gsutil cp bclassifier-0.9.tar.gz gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
+
+## Start a training job on ML-Engine using uploaded package
+
+PATH_TO_PACKAGED_TRAINER=gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
+JOB_NAME=vgg16base1_3_20_10
+JOB_DIR=gs://lumber-classifier/jobs/$JOB_NAME
+TRAIN_DATA=gs://lumber-classifier/data/training.tfrecords
+EVAL_DATA=gs://lumber-classifier/data/validation.tfrecords
+
+gcloud ml-engine jobs submit training $JOB_NAME \
+--module-name trainer.task \
+--job-dir $JOB_DIR \
+--packages $PATH_TO_PACKAGED_TRAINER \
+--region us-central1 \
+--config config.yaml \
+--runtime-version 1.6 \
+-- \
+--model vgg16base1 \
+--training-file $TRAIN_DATA \
+--validation-file $EVAL_DATA \
+--hidden-units 512 \
+--max-steps 100000 \
+--eval-steps 5000 \
+--verbosity INFO
 
 
 ## Checking local prediction with glcoud
