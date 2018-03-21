@@ -83,7 +83,7 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --training-file $TRAIN_DATA \
 --validation-file $EVAL_DATA \
 --hidden-units 512 \
---max-steps 100000 \
+--max-steps 150000 \
 --eval-steps 5000 \
 --verbosity INFO
 ```
