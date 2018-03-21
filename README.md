@@ -114,3 +114,9 @@ gcloud ml-engine versions list --model bclassifier
 MODEL_BINARY=gs://mlsandbox-staging/vgg16base1v1
 gcloud ml-engine versions create v1 --model bclassifier --origin $MODEL_BINARY --runtime-version 1.6
 ```
+
+## Test predictions
+```
+gcloud ml-engine predict --model lumberclassifier --version v1 --json-instances json_instances/sound1.json
+```
+
