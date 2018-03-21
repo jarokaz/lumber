@@ -1,0 +1,10 @@
+setup.py
+bclassifier.egg-info/PKG-INFO
+bclassifier.egg-info/SOURCES.txt
+bclassifier.egg-info/dependency_links.txt
+bclassifier.egg-info/not-zip-safe
+bclassifier.egg-info/requires.txt
+bclassifier.egg-info/top_level.txt
+trainer/__init__.py
+trainer/model.py
+trainer/task.py
