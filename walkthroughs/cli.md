@@ -46,14 +46,13 @@ gcloud ml-engine jobs submit training $JOB_NAME \
 --verbosity INFO
 ```
 
-# Manual steps
-## Package the job 
+
+## Package the job
 ```
 python setup.py sdist
 ```
 
-##
-Upload the job to Google storage
+## Upload the job to Google storage
 ```
 gsutil cp bclassifier-0.9.tar.gz gs://lumber-classifier/packages/bclassifier-0.9.tar.gz
 ```
@@ -139,5 +138,11 @@ gcloud ml-engine versions create v1 --model bclassifier --origin $MODEL_BINARY -
 ## Test predictions
 ```
 gcloud ml-engine predict --model lumberclassifier --version v1 --json-instances json_instances/sound1.json
+```
+
+## Connect to Datalab
+
+```
+datalab connect jk-datalab
 ```
 
