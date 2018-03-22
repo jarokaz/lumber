@@ -18,18 +18,18 @@ def overlay_grid(image, group):
 
 
 
-index = "../data/unprocessed/manlabel.txt"
+index = "../../data/unprocessed/manlabel.txt"
 df = pd.read_csv(index, delim_whitespace=True, header=None, names=['image','min_y','min_x','max_y','max_x','label'])
 gb = df.groupby(df['image']) 
 
 file_type = ".PNG"
-inputpath="../data/unprocessed"
-outputpath="../data/overlays"
+inputpath="../../data/unprocessed"
+outputpath="../../data/originals"
 
 for name, group in gb:
     filepath = join(inputpath, name)
     image = Image.open(filepath)
-    overlay_grid(image, group)
+    # overlay_grid(image, group)
     filename = join(outputpath, group.iloc[0]['image'] + file_type)
     image.save(filename)
     print("Processed image: {0}".format(filename))

@@ -45,9 +45,9 @@ def convert_to_tfrecord(images, inputpath, outputfile):
             writer.write(example.SerializeToString())
 
 def create_test_file():
-    images = [('st1013_dry_knot_14.PNG', 5), ('st1013_resin_pocket_66.PNG', 3)]
+    images = [('st1035_sound_knot_52.PNG', 5), ('st1035_split_118.PNG', 3), ('st1050_sound_24.PNG', 0)]
     outputfile = '../data/test.tfrecords'
-    inputpath = '../data/snapshots/development'
+    inputpath = '../data/snapshots/testing'
     convert_to_tfrecord(images, inputpath, outputfile)
     
     
@@ -66,6 +66,7 @@ def convert_to_uint8(image):
 
 def _parse(example_proto, augment):
 
+     
     features = {"image": tf.FixedLenFeature((), tf.string, default_value=""),
                 "label": tf.FixedLenFeature((), tf.int64, default_value=0)}
 
@@ -115,6 +116,8 @@ IMAGE_SHAPE = (112, 112, 3)
 NUM_CLASSES = 7
 
 def main():
+
+   
     file = '../data/test.tfrecords'
     
     dataset = tf.data.TFRecordDataset(file)
